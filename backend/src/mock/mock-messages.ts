@@ -1,26 +1,23 @@
-export type MockDashboardMessage =
+export type MockSourceMessage =
   | {
-      readonly type: "connection:update";
-      readonly sentAt: string;
+      readonly type: "mock:connection";
+      readonly recordedAt: string;
       readonly payload: {
-        readonly status: "connected";
         readonly sessionName: string;
         readonly sessionType: "Race";
-        readonly dataMode: "mock";
-        readonly lastUpdate: string;
       };
     }
   | {
-      readonly type: "timing:update";
-      readonly sentAt: string;
+      readonly type: "mock:timing";
+      readonly recordedAt: string;
       readonly payload: {
         readonly lap: number;
         readonly drivers: readonly MockTimingDriver[];
       };
     }
   | {
-      readonly type: "race-control:update";
-      readonly sentAt: string;
+      readonly type: "mock:race-control";
+      readonly recordedAt: string;
       readonly payload: {
         readonly messages: readonly MockRaceControlMessage[];
       };
@@ -44,32 +41,29 @@ const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
   { position: 3, abbreviation: "LEC", gapToLeader: "+2.468" }
 ];
 
-export function createMockDashboardMessages(sequence: number, sentAt = new Date()): readonly MockDashboardMessage[] {
-  const timestamp = sentAt.toISOString();
+export function createMockSourceMessages(sequence: number, recordedAt = new Date()): readonly MockSourceMessage[] {
+  const timestamp = recordedAt.toISOString();
 
   return [
     {
-      type: "connection:update",
-      sentAt: timestamp,
+      type: "mock:connection",
+      recordedAt: timestamp,
       payload: {
-        status: "connected",
         sessionName: "Mock Grand Prix",
-        sessionType: "Race",
-        dataMode: "mock",
-        lastUpdate: timestamp
+        sessionType: "Race"
       }
     },
     {
-      type: "timing:update",
-      sentAt: timestamp,
+      type: "mock:timing",
+      recordedAt: timestamp,
       payload: {
         lap: 12 + sequence,
         drivers: MOCK_TIMING_DRIVERS
       }
     },
     {
-      type: "race-control:update",
-      sentAt: timestamp,
+      type: "mock:race-control",
+      recordedAt: timestamp,
       payload: {
         messages: [
           {

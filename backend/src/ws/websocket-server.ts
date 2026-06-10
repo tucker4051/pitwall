@@ -2,8 +2,10 @@ import type { Server } from "node:http";
 
 import { WebSocket, WebSocketServer } from "ws";
 
-import { createMockDashboardMessages } from "../mock/mock-messages.js";
 import type { AppConfig } from "../config/env.js";
+import { createMockSourceMessages } from "../mock/mock-messages.js";
+import { createInitialCurrentRaceState } from "../state/current-race-state.js";
+import { applyMockMessageToState, createDashboardMessageFromState } from "../state/state-updater.js";
 
 type WebSocketServerOptions = {
   readonly dataMode: AppConfig["dataMode"];
@@ -55,10 +57,12 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
 
 function startMockMessageStream(webSocket: WebSocket): () => void {
   let sequence = 0;
+  let currentRaceState = createInitialCurrentRaceState("mock");
 
   const sendMockMessages = () => {
-    for (const message of createMockDashboardMessages(sequence)) {
-      sendJson(webSocket, message);
+    for (const message of createMockSourceMessages(sequence)) {
+      currentRaceState = applyMockMessageToState(currentRaceState, message);
+      sendJson(webSocket, createDashboardMessageFromState(currentRaceState, message.type, new Date().toISOString()));
     }
 
     sequence += 1;
