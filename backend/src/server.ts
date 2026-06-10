@@ -5,6 +5,8 @@ import type { AppConfig } from "./config/env.js";
 export function createAppServer(config: AppConfig) {
   return createServer((request, response) => {
     if (request.method === "GET" && request.url === "/health") {
+      console.log("GET /health");
+
       sendJson(response, 200, {
         status: "ok",
         app: config.appName,

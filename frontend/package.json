@@ -11,9 +11,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "clsx": "latest",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "tailwind-merge": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
@@ -24,6 +26,7 @@
     "eslint-config-next": "latest",
     "postcss": "latest",
     "tailwindcss": "latest",
+    "tw-animate-css": "latest",
     "typescript": "latest"
   }
 }

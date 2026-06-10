@@ -4,8 +4,18 @@ import { createAppServer } from "./server.js";
 const config = loadConfig();
 const server = createAppServer(config);
 
+console.log("Starting PitWall backend.");
+
 server.listen(config.backendPort, () => {
-  console.log(`PitWall backend listening on port ${config.backendPort}`);
+  console.log("PitWall backend started.", {
+    port: config.backendPort,
+    nodeEnv: config.nodeEnv,
+    dataMode: config.dataMode
+  });
+});
+
+server.on("error", (error) => {
+  console.error("PitWall backend server error.", error);
 });
 
 function shutdown(signal: NodeJS.Signals): void {
