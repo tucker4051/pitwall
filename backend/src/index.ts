@@ -4,7 +4,7 @@ import { attachWebSocketServer } from "./ws/websocket-server.js";
 
 const config = loadConfig();
 const server = createAppServer(config);
-const webSocketServer = attachWebSocketServer(server);
+const webSocketServer = attachWebSocketServer(server, { dataMode: config.dataMode });
 
 console.log("Starting PitWall backend.");
 

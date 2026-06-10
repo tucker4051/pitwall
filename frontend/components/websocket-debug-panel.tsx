@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
+const MAX_VISIBLE_MESSAGES = 6;
+
 export function WebSocketDebugPanel() {
   const webSocketUrl = useMemo(() => process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:3001/ws", []);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const [latestMessage, setLatestMessage] = useState<string>("No message received yet.");
+  const [messages, setMessages] = useState<readonly string[]>([]);
 
   useEffect(() => {
     const socket = new WebSocket(webSocketUrl);
@@ -17,7 +19,7 @@ export function WebSocketDebugPanel() {
     });
 
     socket.addEventListener("message", (event) => {
-      setLatestMessage(formatMessage(event.data));
+      setMessages((currentMessages) => [formatMessage(event.data), ...currentMessages].slice(0, MAX_VISIBLE_MESSAGES));
     });
 
     socket.addEventListener("close", () => {
@@ -43,9 +45,17 @@ export function WebSocketDebugPanel() {
         <span className={getStatusClassName(status)}>{status}</span>
       </div>
 
-      <pre className="mt-4 max-h-48 overflow-auto rounded bg-slate-900 p-3 text-xs leading-5 text-slate-300">
-        {latestMessage}
-      </pre>
+      <div className="mt-4 space-y-3">
+        {messages.length > 0 ? (
+          messages.map((message, index) => (
+            <pre key={`${index}-${message}`} className="max-h-48 overflow-auto rounded bg-slate-900 p-3 text-xs leading-5 text-slate-300">
+              {message}
+            </pre>
+          ))
+        ) : (
+          <p className="rounded bg-slate-900 p-3 text-xs text-slate-400">No message received yet.</p>
+        )}
+      </div>
     </section>
   );
 }

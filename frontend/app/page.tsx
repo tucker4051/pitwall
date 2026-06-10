@@ -19,7 +19,7 @@ export default function Home() {
             <h1 className="mt-2 text-3xl font-semibold">Live race dashboard foundation</h1>
           </div>
           <div className="rounded border border-slate-700 px-3 py-2 text-sm text-slate-300">
-            Stage 1 placeholder
+            Stage 2 mock pipeline proof
           </div>
         </header>
 
