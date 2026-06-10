@@ -1,0 +1,54 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      target: development
+    working_dir: /app
+    command: >
+      sh -c "if [ -d node_modules ] && [ -f package.json ]; then
+        npm run dev;
+      else
+        echo 'Backend container ready. Run dependencies inside Docker with: docker compose run --rm backend npm install';
+        tail -f /dev/null;
+      fi"
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-3001}
+      NODE_ENV: ${NODE_ENV:-development}
+      DATA_MODE: ${DATA_MODE:-mock}
+      OPENF1_USERNAME: ${OPENF1_USERNAME:-}
+      OPENF1_PASSWORD: ${OPENF1_PASSWORD:-}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend:/app
+      - backend_node_modules:/app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    working_dir: /app
+    command: >
+      sh -c "if [ -d node_modules ] && [ -f package.json ]; then
+        npm run dev;
+      else
+        echo 'Frontend container ready. Run dependencies inside Docker with: docker compose run --rm frontend npm install';
+        tail -f /dev/null;
+      fi"
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-PitWall}
+      NEXT_PUBLIC_BACKEND_WS_URL: ${NEXT_PUBLIC_BACKEND_WS_URL:-ws://localhost:3001/ws}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_next:/app/.next
+    depends_on:
+      - backend
+
+volumes:
+  backend_node_modules:
+  frontend_node_modules:
+  frontend_next:
