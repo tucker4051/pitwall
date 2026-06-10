@@ -5,12 +5,10 @@ services:
       target: development
     working_dir: /app
     command: >
-      sh -c "if [ -x node_modules/.bin/tsx ] && [ -f package.json ]; then
-        npm run dev;
-      else
-        echo 'Backend container ready. Run dependencies inside Docker with: docker compose run --rm backend npm install';
-        tail -f /dev/null;
-      fi"
+      sh -c "if [ ! -x node_modules/.bin/tsx ]; then
+        npm install;
+      fi;
+      npm run dev"
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-3001}
       NODE_ENV: ${NODE_ENV:-development}
@@ -29,12 +27,10 @@ services:
       target: development
     working_dir: /app
     command: >
-      sh -c "if [ -x node_modules/.bin/next ] && [ -f package.json ]; then
-        npm run dev;
-      else
-        echo 'Frontend container ready. Run dependencies inside Docker with: docker compose run --rm frontend npm install';
-        tail -f /dev/null;
-      fi"
+      sh -c "if [ ! -x node_modules/.bin/next ]; then
+        npm install;
+      fi;
+      npm run dev"
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-PitWall}

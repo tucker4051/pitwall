@@ -1,8 +1,10 @@
 import { loadConfig } from "./config/env.js";
 import { createAppServer } from "./server.js";
+import { attachWebSocketServer } from "./ws/websocket-server.js";
 
 const config = loadConfig();
 const server = createAppServer(config);
+const webSocketServer = attachWebSocketServer(server);
 
 console.log("Starting PitWall backend.");
 
@@ -20,6 +22,8 @@ server.on("error", (error) => {
 
 function shutdown(signal: NodeJS.Signals): void {
   console.log(`Received ${signal}. Shutting down backend.`);
+
+  webSocketServer.close();
 
   server.close((error) => {
     if (error) {

@@ -1,3 +1,5 @@
+import { WebSocketDebugPanel } from "@/components/websocket-debug-panel";
+
 const placeholderPanels = [
   "Timing tower",
   "Track map",
@@ -57,6 +59,8 @@ export default function Home() {
             </div>
           ))}
         </section>
+
+        <WebSocketDebugPanel />
       </section>
     </main>
   );
