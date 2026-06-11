@@ -63,5 +63,40 @@ export const OPENF1_FIXTURE_MESSAGES = [
       wind_speed: 5.7,
       wind_direction: 184
     }
+  },
+  {
+    topic: "v1/location",
+    payload: {
+      _id: 10_007,
+      _key: "location-1",
+      driver_number: 1,
+      x: 125.4,
+      y: -42.2,
+      z: 0
+    }
+  },
+  {
+    topic: "v1/car_data",
+    payload: {
+      _id: 10_008,
+      _key: "car-data-1",
+      driver_number: 1,
+      speed: 287,
+      throttle: 92,
+      brake: 0,
+      n_gear: 7,
+      rpm: 11_250
+    }
+  },
+  {
+    topic: "v1/stints",
+    payload: {
+      _id: 10_009,
+      _key: "stint-1-2",
+      driver_number: 1,
+      compound: "MEDIUM",
+      stint_number: 2,
+      tyre_age_at_start: 6
+    }
   }
 ] as const;

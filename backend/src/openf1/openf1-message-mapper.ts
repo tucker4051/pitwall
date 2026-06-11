@@ -31,10 +31,16 @@ export function mapOpenF1Message(topic: string, payload: unknown, receivedAt = n
       return mapDriverMessage(topic, payload, receivedAt);
     case "v1/position":
       return mapPositionMessage(topic, payload, receivedAt);
+    case "v1/location":
+      return mapLocationMessage(topic, payload, receivedAt);
     case "v1/race_control":
       return mapRaceControlMessage(topic, payload, receivedAt);
+    case "v1/stints":
+      return mapStintMessage(topic, payload, receivedAt);
     case "v1/weather":
       return mapWeatherMessage(topic, payload, receivedAt);
+    case "v1/car_data":
+      return mapCarDataMessage(topic, payload, receivedAt);
   }
 }
 
@@ -138,6 +144,45 @@ function mapRaceControlMessage(
   };
 }
 
+function mapLocationMessage(
+  topic: "v1/location",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  if (
+    !isNumber(payload.driver_number) ||
+    !isNumber(payload.x) ||
+    !isNumber(payload.y) ||
+    !isNumber(payload.z)
+  ) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:location",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        positions: [
+          {
+            abbreviation: String(payload.driver_number),
+            x: payload.x,
+            y: payload.y,
+            z: payload.z
+          }
+        ]
+      }
+    }
+  };
+}
+
 function mapWeatherMessage(
   topic: "v1/weather",
   payload: Record<string, unknown>,
@@ -172,6 +217,91 @@ function mapWeatherMessage(
         rainfall: payload.rainfall,
         windSpeed: payload.wind_speed,
         windDirection: payload.wind_direction
+      }
+    }
+  };
+}
+
+function mapCarDataMessage(
+  topic: "v1/car_data",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  if (
+    !isNumber(payload.driver_number) ||
+    !isNumber(payload.speed) ||
+    !isNumber(payload.throttle) ||
+    !isNumber(payload.brake) ||
+    !isNumber(payload.n_gear) ||
+    !isNumber(payload.rpm)
+  ) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:telemetry",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        snapshots: [
+          {
+            driverNumber: payload.driver_number,
+            speed: payload.speed,
+            throttle: payload.throttle,
+            brake: payload.brake,
+            gear: payload.n_gear,
+            rpm: payload.rpm
+          }
+        ]
+      }
+    }
+  };
+}
+
+function mapStintMessage(
+  topic: "v1/stints",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  const compound = normalizeCompound(payload.compound);
+
+  if (
+    !isNumber(payload.driver_number) ||
+    !isNumber(payload.stint_number) ||
+    !isNumber(payload.tyre_age_at_start) ||
+    !compound
+  ) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:tyre-stint",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        stints: [
+          {
+            driverNumber: payload.driver_number,
+            compound,
+            stintNumber: payload.stint_number,
+            stintAgeLaps: payload.tyre_age_at_start,
+            pitStops: Math.max(0, payload.stint_number - 1)
+          }
+        ]
       }
     }
   };
@@ -214,4 +344,18 @@ function isString(value: unknown): value is string {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized === "soft" || normalized === "medium" || normalized === "hard") {
+    return normalized;
+  }
+
+  return undefined;
 }

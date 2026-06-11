@@ -78,6 +78,23 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       };
     }
 
+    case "openf1:location": {
+      const trackPositions = new Map<string, TrackPositionState>();
+
+      for (const position of message.payload.positions) {
+        trackPositions.set(position.abbreviation, {
+          ...position,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        trackPositions
+      };
+    }
+
     case "mock:weather":
       return {
         ...state,
@@ -105,7 +122,41 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       };
     }
 
+    case "openf1:telemetry": {
+      const telemetry = new Map<number, TelemetrySnapshotState>();
+
+      for (const snapshot of message.payload.snapshots) {
+        telemetry.set(snapshot.driverNumber, {
+          ...snapshot,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        telemetry
+      };
+    }
+
     case "mock:tyre-stint": {
+      const tyreStints = new Map<number, TyreStintState>();
+
+      for (const stint of message.payload.stints) {
+        tyreStints.set(stint.driverNumber, {
+          ...stint,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        tyreStints
+      };
+    }
+
+    case "openf1:tyre-stint": {
       const tyreStints = new Map<number, TyreStintState>();
 
       for (const stint of message.payload.stints) {
@@ -275,6 +326,7 @@ export function createDashboardMessageFromState(
       };
 
     case "mock:location":
+    case "openf1:location":
       return {
         type: "track:update",
         sentAt,
@@ -292,6 +344,7 @@ export function createDashboardMessageFromState(
       };
 
     case "mock:telemetry":
+    case "openf1:telemetry":
       return {
         type: "telemetry:update",
         sentAt,
@@ -301,6 +354,7 @@ export function createDashboardMessageFromState(
       };
 
     case "mock:tyre-stint":
+    case "openf1:tyre-stint":
       return {
         type: "stints:update",
         sentAt,

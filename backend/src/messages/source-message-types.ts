@@ -82,11 +82,35 @@ export type OpenF1SourceMessage =
       };
     }
   | {
+      readonly type: "openf1:location";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/location" };
+      readonly payload: {
+        readonly positions: readonly MockTrackPosition[];
+      };
+    }
+  | {
       readonly type: "openf1:race-control";
       readonly recordedAt: string;
       readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/race_control" };
       readonly payload: {
         readonly messages: readonly OpenF1InternalRaceControlMessage[];
+      };
+    }
+  | {
+      readonly type: "openf1:telemetry";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/car_data" };
+      readonly payload: {
+        readonly snapshots: readonly MockTelemetrySnapshot[];
+      };
+    }
+  | {
+      readonly type: "openf1:tyre-stint";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/stints" };
+      readonly payload: {
+        readonly stints: readonly MockTyreStint[];
       };
     }
   | {
@@ -179,6 +203,9 @@ export const SOURCE_MESSAGE_TYPES = [
   ...MOCK_SOURCE_MESSAGE_TYPES,
   "openf1:drivers",
   "openf1:position",
+  "openf1:location",
   "openf1:race-control",
+  "openf1:telemetry",
+  "openf1:tyre-stint",
   "openf1:weather"
 ] as const satisfies readonly SourceMessageType[];

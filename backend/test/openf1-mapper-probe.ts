@@ -4,7 +4,15 @@ import { createInitialCurrentRaceState } from "../src/state/current-race-state.j
 import { applyMockMessageToState, createDashboardMessageFromState } from "../src/state/state-updater.js";
 import { OPENF1_FIXTURE_MESSAGES, OPENF1_FIXTURE_RECEIVED_AT } from "./fixtures/openf1/openf1-fixtures.js";
 
-const expectedDashboardTypes = new Set(["drivers:update", "timing:update", "race-control:update", "weather:update"]);
+const expectedDashboardTypes = new Set([
+  "drivers:update",
+  "timing:update",
+  "race-control:update",
+  "weather:update",
+  "track:update",
+  "telemetry:update",
+  "stints:update"
+]);
 const dashboardTypes = new Set<string>();
 const sourceTypes = new Set<string>();
 let state = createInitialCurrentRaceState("live");
@@ -47,6 +55,9 @@ console.log(
     dashboardTypes: Array.from(dashboardTypes),
     driverCount: state.drivers.size,
     raceControlMessageCount: state.raceControlMessages.length,
+    trackPositionCount: state.trackPositions.size,
+    telemetryCount: state.telemetry.size,
+    tyreStintCount: state.tyreStints.size,
     hasWeather: state.weather !== null
   })
 );

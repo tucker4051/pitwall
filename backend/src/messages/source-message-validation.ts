@@ -50,8 +50,14 @@ export function validateSourceMessage(message: unknown): SourceMessageValidation
       return validateOpenF1DriversMessage(message);
     case "openf1:position":
       return validateOpenF1PositionMessage(message);
+    case "openf1:location":
+      return validateLocationMessage(message);
     case "openf1:race-control":
       return validateOpenF1RaceControlMessage(message);
+    case "openf1:telemetry":
+      return validateTelemetryMessage(message);
+    case "openf1:tyre-stint":
+      return validateTyreStintMessage(message);
     case "openf1:weather":
       return validateWeatherMessage(message);
   }
