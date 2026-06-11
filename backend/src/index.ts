@@ -1,10 +1,22 @@
 import { loadConfig } from "./config/env.js";
+import { createOpenF1Config } from "./openf1/openf1-config.js";
 import { createAppServer } from "./server.js";
 import { attachWebSocketServer } from "./ws/websocket-server.js";
 
 const config = loadConfig();
 const server = createAppServer(config);
 const webSocketServer = attachWebSocketServer(server, { dataMode: config.dataMode });
+
+if (config.dataMode === "live") {
+  const openF1Config = createOpenF1Config(config.openF1);
+
+  console.log("OpenF1 live mode configuration validated.", {
+    mqttHost: openF1Config.mqtt.host,
+    mqttPort: openF1Config.mqtt.port,
+    topicCount: openF1Config.topics.length
+  });
+  console.log("OpenF1 connector startup is disabled for this integration slice.");
+}
 
 console.log("Starting PitWall backend.");
 
