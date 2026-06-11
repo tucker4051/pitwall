@@ -21,6 +21,13 @@ export type MockSourceMessage =
       readonly payload: {
         readonly messages: readonly MockRaceControlMessage[];
       };
+    }
+  | {
+      readonly type: "mock:location";
+      readonly recordedAt: string;
+      readonly payload: {
+        readonly positions: readonly MockTrackPosition[];
+      };
     };
 
 type MockTimingDriver = {
@@ -35,10 +42,23 @@ type MockRaceControlMessage = {
   readonly message: string;
 };
 
+type MockTrackPosition = {
+  readonly abbreviation: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+};
+
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
   { position: 1, abbreviation: "VER", gapToLeader: "LEADER" },
   { position: 2, abbreviation: "NOR", gapToLeader: "+1.234" },
   { position: 3, abbreviation: "LEC", gapToLeader: "+2.468" }
+];
+
+const MOCK_LOCATION_BASES: readonly MockTrackPosition[] = [
+  { abbreviation: "VER", x: 12, y: 24, z: 0 },
+  { abbreviation: "NOR", x: 42, y: 58, z: 0 },
+  { abbreviation: "LEC", x: 70, y: 36, z: 0 }
 ];
 
 export function createMockSourceMessages(sequence: number, recordedAt = new Date()): readonly MockSourceMessage[] {
@@ -73,6 +93,26 @@ export function createMockSourceMessages(sequence: number, recordedAt = new Date
           }
         ]
       }
+    },
+    {
+      type: "mock:location",
+      recordedAt: timestamp,
+      payload: {
+        positions: createMockTrackPositions(sequence)
+      }
     }
   ];
+}
+
+function createMockTrackPositions(sequence: number): readonly MockTrackPosition[] {
+  return MOCK_LOCATION_BASES.map((position, index) => ({
+    abbreviation: position.abbreviation,
+    x: wrapCoordinate(position.x + sequence * 5 + index * 2),
+    y: wrapCoordinate(position.y + sequence * 3 + index * 4),
+    z: position.z
+  }));
+}
+
+function wrapCoordinate(value: number): number {
+  return value % 100;
 }

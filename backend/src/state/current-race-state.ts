@@ -16,6 +16,7 @@ export function createInitialCurrentRaceState(dataMode: CurrentRaceState["connec
       lap: null,
       drivers: []
     },
+    trackPositions: new Map(),
     raceControlMessages: []
   };
 }

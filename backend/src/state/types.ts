@@ -30,11 +30,20 @@ export type RaceControlMessageState = {
   readonly receivedAt: string;
 };
 
+export type TrackPositionState = {
+  readonly abbreviation: string;
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+  readonly updatedAt: string;
+};
+
 export type CurrentRaceState = {
   readonly connection: ConnectionState;
   readonly session: SessionState;
   readonly drivers: ReadonlyMap<string, DriverState>;
   readonly timing: TimingState;
+  readonly trackPositions: ReadonlyMap<string, TrackPositionState>;
   readonly raceControlMessages: readonly RaceControlMessageState[];
 };
 
@@ -60,5 +69,12 @@ export type DashboardMessage =
       readonly sentAt: string;
       readonly payload: {
         readonly messages: readonly RaceControlMessageState[];
+      };
+    }
+  | {
+      readonly type: "track:update";
+      readonly sentAt: string;
+      readonly payload: {
+        readonly positions: readonly TrackPositionState[];
       };
     };

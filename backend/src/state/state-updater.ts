@@ -1,5 +1,5 @@
 import type { MockSourceMessage } from "../mock/mock-messages.js";
-import type { CurrentRaceState, DashboardMessage, DriverState, RaceControlMessageState } from "./types.js";
+import type { CurrentRaceState, DashboardMessage, DriverState, RaceControlMessageState, TrackPositionState } from "./types.js";
 
 const MAX_RACE_CONTROL_MESSAGES = 10;
 
@@ -61,6 +61,26 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
         raceControlMessages: nextMessages
       };
     }
+
+    case "mock:location": {
+      const trackPositions = new Map<string, TrackPositionState>();
+
+      for (const position of message.payload.positions) {
+        trackPositions.set(position.abbreviation, {
+          ...position,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: {
+          ...state.connection,
+          lastUpdate: message.recordedAt
+        },
+        trackPositions
+      };
+    }
   }
 }
 
@@ -96,6 +116,15 @@ export function createDashboardMessageFromState(
         sentAt,
         payload: {
           messages: state.raceControlMessages
+        }
+      };
+
+    case "mock:location":
+      return {
+        type: "track:update",
+        sentAt,
+        payload: {
+          positions: Array.from(state.trackPositions.values())
         }
       };
   }
