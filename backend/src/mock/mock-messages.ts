@@ -40,6 +40,13 @@ export type MockSourceMessage =
       readonly payload: {
         readonly snapshots: readonly MockTelemetrySnapshot[];
       };
+    }
+  | {
+      readonly type: "mock:tyre-stint";
+      readonly recordedAt: string;
+      readonly payload: {
+        readonly stints: readonly MockTyreStint[];
+      };
     };
 
 type MockTimingDriver = {
@@ -77,6 +84,16 @@ type MockTelemetrySnapshot = {
   readonly brake: number;
   readonly gear: number;
   readonly rpm: number;
+};
+
+type MockTyreCompound = "soft" | "medium" | "hard";
+
+type MockTyreStint = {
+  readonly driverNumber: number;
+  readonly compound: MockTyreCompound;
+  readonly stintNumber: number;
+  readonly stintAgeLaps: number;
+  readonly pitStops: number;
 };
 
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
@@ -142,6 +159,13 @@ export function createMockSourceMessages(sequence: number, recordedAt = new Date
       payload: {
         snapshots: createMockTelemetrySnapshots(sequence)
       }
+    },
+    {
+      type: "mock:tyre-stint",
+      recordedAt: timestamp,
+      payload: {
+        stints: createMockTyreStints(sequence)
+      }
     }
   ];
 }
@@ -193,4 +217,40 @@ function createMockTelemetrySnapshot(driverNumber: number, sequence: number, off
     gear: 3 + ((sequence + offset) % 5),
     rpm: 9_800 + ((sequence * 375 + offset * 650) % 3_200)
   };
+}
+
+function createMockTyreStints(sequence: number): readonly MockTyreStint[] {
+  return [
+    createMockTyreStint(1, "medium", sequence, 0),
+    createMockTyreStint(4, "hard", sequence, 2),
+    createMockTyreStint(16, "soft", sequence, 4)
+  ];
+}
+
+function createMockTyreStint(
+  driverNumber: number,
+  startingCompound: MockTyreCompound,
+  sequence: number,
+  ageOffset: number
+): MockTyreStint {
+  const pitStops = sequence >= 8 ? 1 : 0;
+
+  return {
+    driverNumber,
+    compound: pitStops > 0 ? nextCompound(startingCompound) : startingCompound,
+    stintNumber: pitStops + 1,
+    stintAgeLaps: sequence + ageOffset - pitStops * 8,
+    pitStops
+  };
+}
+
+function nextCompound(compound: MockTyreCompound): MockTyreCompound {
+  switch (compound) {
+    case "soft":
+      return "medium";
+    case "medium":
+      return "hard";
+    case "hard":
+      return "medium";
+  }
 }

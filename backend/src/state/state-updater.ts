@@ -6,7 +6,8 @@ import type {
   DriverState,
   RaceControlMessageState,
   TelemetrySnapshotState,
-  TrackPositionState
+  TrackPositionState,
+  TyreStintState
 } from "./types.js";
 
 const MAX_RACE_CONTROL_MESSAGES = 10;
@@ -103,6 +104,23 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
         telemetry
       };
     }
+
+    case "mock:tyre-stint": {
+      const tyreStints = new Map<number, TyreStintState>();
+
+      for (const stint of message.payload.stints) {
+        tyreStints.set(stint.driverNumber, {
+          ...stint,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        tyreStints
+      };
+    }
   }
 }
 
@@ -183,6 +201,15 @@ export function createDashboardMessageFromState(
         sentAt,
         payload: {
           snapshots: Array.from(state.telemetry.values())
+        }
+      };
+
+    case "mock:tyre-stint":
+      return {
+        type: "stints:update",
+        sentAt,
+        payload: {
+          stints: Array.from(state.tyreStints.values())
         }
       };
   }

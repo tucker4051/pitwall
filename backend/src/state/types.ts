@@ -63,6 +63,19 @@ export type TelemetrySnapshotState = {
 
 export type TelemetryState = ReadonlyMap<number, TelemetrySnapshotState>;
 
+export type TyreCompound = "soft" | "medium" | "hard" | "intermediate" | "wet";
+
+export type TyreStintState = {
+  readonly driverNumber: number;
+  readonly compound: TyreCompound;
+  readonly stintNumber: number;
+  readonly stintAgeLaps: number;
+  readonly pitStops: number;
+  readonly updatedAt: string;
+};
+
+export type TyreStintsState = ReadonlyMap<number, TyreStintState>;
+
 export type CurrentRaceState = {
   readonly connection: ConnectionState;
   readonly session: SessionState;
@@ -71,6 +84,7 @@ export type CurrentRaceState = {
   readonly trackPositions: ReadonlyMap<string, TrackPositionState>;
   readonly weather: WeatherState | null;
   readonly telemetry: TelemetryState;
+  readonly tyreStints: TyreStintsState;
   readonly raceControlMessages: readonly RaceControlMessageState[];
 };
 
@@ -118,5 +132,12 @@ export type DashboardMessage =
       readonly sentAt: string;
       readonly payload: {
         readonly snapshots: readonly TelemetrySnapshotState[];
+      };
+    }
+  | {
+      readonly type: "stints:update";
+      readonly sentAt: string;
+      readonly payload: {
+        readonly stints: readonly TyreStintState[];
       };
     };
