@@ -1,100 +1,12 @@
-export type MockSourceMessage =
-  | {
-      readonly type: "mock:connection";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly sessionName: string;
-        readonly sessionType: "Race";
-      };
-    }
-  | {
-      readonly type: "mock:timing";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly lap: number;
-        readonly drivers: readonly MockTimingDriver[];
-      };
-    }
-  | {
-      readonly type: "mock:race-control";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly messages: readonly MockRaceControlMessage[];
-      };
-    }
-  | {
-      readonly type: "mock:location";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly positions: readonly MockTrackPosition[];
-      };
-    }
-  | {
-      readonly type: "mock:weather";
-      readonly recordedAt: string;
-      readonly payload: MockWeather;
-    }
-  | {
-      readonly type: "mock:telemetry";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly snapshots: readonly MockTelemetrySnapshot[];
-      };
-    }
-  | {
-      readonly type: "mock:tyre-stint";
-      readonly recordedAt: string;
-      readonly payload: {
-        readonly stints: readonly MockTyreStint[];
-      };
-    };
-
-type MockTimingDriver = {
-  readonly position: number;
-  readonly abbreviation: string;
-  readonly gapToLeader: string;
-};
-
-type MockRaceControlMessage = {
-  readonly id: string;
-  readonly category: "session" | "flag";
-  readonly message: string;
-};
-
-type MockTrackPosition = {
-  readonly abbreviation: string;
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-};
-
-type MockWeather = {
-  readonly airTemperature: number;
-  readonly trackTemperature: number;
-  readonly humidity: number;
-  readonly rainfall: number;
-  readonly windSpeed: number;
-  readonly windDirection: number;
-};
-
-type MockTelemetrySnapshot = {
-  readonly driverNumber: number;
-  readonly speed: number;
-  readonly throttle: number;
-  readonly brake: number;
-  readonly gear: number;
-  readonly rpm: number;
-};
-
-type MockTyreCompound = "soft" | "medium" | "hard";
-
-type MockTyreStint = {
-  readonly driverNumber: number;
-  readonly compound: MockTyreCompound;
-  readonly stintNumber: number;
-  readonly stintAgeLaps: number;
-  readonly pitStops: number;
-};
+import type {
+  MockSourceMessage,
+  MockTelemetrySnapshot,
+  MockTimingDriver,
+  MockTrackPosition,
+  MockTyreCompound,
+  MockTyreStint,
+  MockWeather
+} from "../messages/source-message-types.js";
 
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
   { position: 1, abbreviation: "VER", gapToLeader: "LEADER" },

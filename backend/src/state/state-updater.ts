@@ -1,4 +1,4 @@
-import type { MockSourceMessage } from "../mock/mock-messages.js";
+import type { MockSourceMessage } from "../messages/source-message-types.js";
 import type {
   ConnectionState,
   CurrentRaceState,

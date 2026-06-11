@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 
 import type { AppConfig } from "../config/env.js";
+import { routeSourceMessage } from "../messages/source-message-router.js";
 import { createMockSourceMessages } from "../mock/mock-messages.js";
 import { createInitialCurrentRaceState } from "../state/current-race-state.js";
 import {
@@ -83,9 +84,18 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
       return;
     }
 
-    for (const message of createMockSourceMessages(sequence)) {
-      currentRaceState = applyMockMessageToState(currentRaceState, message);
-      sendJson(webSocket, createDashboardMessageFromState(currentRaceState, message.type, new Date().toISOString()));
+    for (const sourceMessage of createMockSourceMessages(sequence)) {
+      const routedMessage = routeSourceMessage(sourceMessage);
+
+      if (!routedMessage.routed) {
+        continue;
+      }
+
+      currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
+      sendJson(
+        webSocket,
+        createDashboardMessageFromState(currentRaceState, routedMessage.message.type, new Date().toISOString())
+      );
     }
 
     sequence += 1;
