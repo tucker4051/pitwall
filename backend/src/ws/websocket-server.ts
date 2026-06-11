@@ -5,13 +5,21 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { AppConfig } from "../config/env.js";
 import { createMockSourceMessages } from "../mock/mock-messages.js";
 import { createInitialCurrentRaceState } from "../state/current-race-state.js";
-import { applyMockMessageToState, createDashboardMessageFromState } from "../state/state-updater.js";
+import {
+  applyMockMessageToState,
+  createConnectionDashboardMessage,
+  createDashboardMessageFromState,
+  markStateStaleIfNeeded
+} from "../state/state-updater.js";
 
 type WebSocketServerOptions = {
   readonly dataMode: AppConfig["dataMode"];
 };
 
 const MOCK_MESSAGE_INTERVAL_MS = 2_500;
+const MOCK_STALE_CHECK_INTERVAL_MS = 500;
+const MOCK_STALE_PAUSE_AFTER_SEQUENCE = 2;
+const MOCK_STALE_PAUSE_MS = 5_500;
 
 export function attachWebSocketServer(server: Server, options: WebSocketServerOptions): WebSocketServer {
   const webSocketServer = new WebSocketServer({ noServer: true });
@@ -58,8 +66,23 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
 function startMockMessageStream(webSocket: WebSocket): () => void {
   let sequence = 0;
   let currentRaceState = createInitialCurrentRaceState("mock");
+  let stalePauseUntil = 0;
+  let hasSimulatedStalePause = false;
 
   const sendMockMessages = () => {
+    const now = Date.now();
+
+    if (stalePauseUntil > now) {
+      return;
+    }
+
+    if (sequence === MOCK_STALE_PAUSE_AFTER_SEQUENCE && !hasSimulatedStalePause) {
+      hasSimulatedStalePause = true;
+      stalePauseUntil = now + MOCK_STALE_PAUSE_MS;
+      console.log("Mock source messages paused to simulate stale data.");
+      return;
+    }
+
     for (const message of createMockSourceMessages(sequence)) {
       currentRaceState = applyMockMessageToState(currentRaceState, message);
       sendJson(webSocket, createDashboardMessageFromState(currentRaceState, message.type, new Date().toISOString()));
@@ -70,10 +93,21 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
 
   sendMockMessages();
 
-  const interval = setInterval(sendMockMessages, MOCK_MESSAGE_INTERVAL_MS);
+  const mockMessageInterval = setInterval(sendMockMessages, MOCK_MESSAGE_INTERVAL_MS);
+  const staleCheckInterval = setInterval(() => {
+    const staleResult = markStateStaleIfNeeded(currentRaceState);
+
+    if (!staleResult.didChange) {
+      return;
+    }
+
+    currentRaceState = staleResult.state;
+    sendJson(webSocket, createConnectionDashboardMessage(currentRaceState, new Date().toISOString()));
+  }, MOCK_STALE_CHECK_INTERVAL_MS);
 
   return () => {
-    clearInterval(interval);
+    clearInterval(mockMessageInterval);
+    clearInterval(staleCheckInterval);
   };
 }
 

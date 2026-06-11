@@ -2,6 +2,9 @@ export type ConnectionState = {
   readonly status: "connected" | "disconnected" | "reconnecting" | "stale";
   readonly dataMode: "mock" | "live";
   readonly lastUpdate: string | null;
+  readonly lastMessageReceivedAt: string | null;
+  readonly isStale: boolean;
+  readonly staleThresholdMs: number;
 };
 
 export type SessionState = {
@@ -57,6 +60,9 @@ export type DashboardMessage =
         readonly sessionName: string | null;
         readonly sessionType: SessionState["type"];
         readonly lastUpdate: string | null;
+        readonly lastMessageReceivedAt: string | null;
+        readonly isStale: boolean;
+        readonly staleThresholdMs: number;
       };
     }
   | {

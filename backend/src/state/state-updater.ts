@@ -1,5 +1,5 @@
 import type { MockSourceMessage } from "../mock/mock-messages.js";
-import type { CurrentRaceState, DashboardMessage, DriverState, RaceControlMessageState, TrackPositionState } from "./types.js";
+import type { ConnectionState, CurrentRaceState, DashboardMessage, DriverState, RaceControlMessageState, TrackPositionState } from "./types.js";
 
 const MAX_RACE_CONTROL_MESSAGES = 10;
 
@@ -8,11 +8,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
     case "mock:connection":
       return {
         ...state,
-        connection: {
-          status: "connected",
-          dataMode: "mock",
-          lastUpdate: message.recordedAt
-        },
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
         session: {
           name: message.payload.sessionName,
           type: message.payload.sessionType
@@ -31,10 +27,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
 
       return {
         ...state,
-        connection: {
-          ...state.connection,
-          lastUpdate: message.recordedAt
-        },
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
         drivers,
         timing: {
           lap: message.payload.lap,
@@ -54,10 +47,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
 
       return {
         ...state,
-        connection: {
-          ...state.connection,
-          lastUpdate: message.recordedAt
-        },
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
         raceControlMessages: nextMessages
       };
     }
@@ -74,14 +64,41 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
 
       return {
         ...state,
-        connection: {
-          ...state.connection,
-          lastUpdate: message.recordedAt
-        },
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
         trackPositions
       };
     }
   }
+}
+
+export function markStateStaleIfNeeded(
+  state: CurrentRaceState,
+  checkedAt = new Date()
+): { readonly state: CurrentRaceState; readonly didChange: boolean } {
+  const { lastMessageReceivedAt, staleThresholdMs } = state.connection;
+
+  if (!lastMessageReceivedAt || state.connection.isStale) {
+    return { state, didChange: false };
+  }
+
+  const elapsedMs = checkedAt.getTime() - Date.parse(lastMessageReceivedAt);
+
+  if (elapsedMs <= staleThresholdMs) {
+    return { state, didChange: false };
+  }
+
+  return {
+    state: {
+      ...state,
+      connection: {
+        ...state.connection,
+        status: "stale",
+        lastUpdate: checkedAt.toISOString(),
+        isStale: true
+      }
+    },
+    didChange: true
+  };
 }
 
 export function createDashboardMessageFromState(
@@ -91,17 +108,7 @@ export function createDashboardMessageFromState(
 ): DashboardMessage {
   switch (sourceType) {
     case "mock:connection":
-      return {
-        type: "connection:update",
-        sentAt,
-        payload: {
-          status: state.connection.status,
-          dataMode: state.connection.dataMode,
-          sessionName: state.session.name,
-          sessionType: state.session.type,
-          lastUpdate: state.connection.lastUpdate
-        }
-      };
+      return createConnectionDashboardMessage(state, sentAt);
 
     case "mock:timing":
       return {
@@ -128,4 +135,31 @@ export function createDashboardMessageFromState(
         }
       };
   }
+}
+
+export function createConnectionDashboardMessage(state: CurrentRaceState, sentAt: string): DashboardMessage {
+  return {
+    type: "connection:update",
+    sentAt,
+    payload: {
+      status: state.connection.status,
+      dataMode: state.connection.dataMode,
+      sessionName: state.session.name,
+      sessionType: state.session.type,
+      lastUpdate: state.connection.lastUpdate,
+      lastMessageReceivedAt: state.connection.lastMessageReceivedAt,
+      isStale: state.connection.isStale,
+      staleThresholdMs: state.connection.staleThresholdMs
+    }
+  };
+}
+
+function createFreshConnectionState(connection: ConnectionState, receivedAt: string): ConnectionState {
+  return {
+    ...connection,
+    status: "connected",
+    lastUpdate: receivedAt,
+    lastMessageReceivedAt: receivedAt,
+    isStale: false
+  };
 }
