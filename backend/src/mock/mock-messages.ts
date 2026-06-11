@@ -28,6 +28,11 @@ export type MockSourceMessage =
       readonly payload: {
         readonly positions: readonly MockTrackPosition[];
       };
+    }
+  | {
+      readonly type: "mock:weather";
+      readonly recordedAt: string;
+      readonly payload: MockWeather;
     };
 
 type MockTimingDriver = {
@@ -47,6 +52,15 @@ type MockTrackPosition = {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+};
+
+type MockWeather = {
+  readonly airTemperature: number;
+  readonly trackTemperature: number;
+  readonly humidity: number;
+  readonly rainfall: number;
+  readonly windSpeed: number;
+  readonly windDirection: number;
 };
 
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
@@ -100,6 +114,11 @@ export function createMockSourceMessages(sequence: number, recordedAt = new Date
       payload: {
         positions: createMockTrackPositions(sequence)
       }
+    },
+    {
+      type: "mock:weather",
+      recordedAt: timestamp,
+      payload: createMockWeather(sequence)
     }
   ];
 }
@@ -115,4 +134,19 @@ function createMockTrackPositions(sequence: number): readonly MockTrackPosition[
 
 function wrapCoordinate(value: number): number {
   return value % 100;
+}
+
+function createMockWeather(sequence: number): MockWeather {
+  return {
+    airTemperature: roundOneDecimal(21.5 + (sequence % 4) * 0.2),
+    trackTemperature: roundOneDecimal(32.8 + (sequence % 5) * 0.4),
+    humidity: 58 + (sequence % 6),
+    rainfall: sequence % 7 === 0 ? 0.1 : 0,
+    windSpeed: roundOneDecimal(8.2 + (sequence % 3) * 0.6),
+    windDirection: (220 + sequence * 12) % 360
+  };
+}
+
+function roundOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10;
 }

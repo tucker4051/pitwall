@@ -25,6 +25,7 @@ export function createInitialCurrentRaceState(
       drivers: []
     },
     trackPositions: new Map(),
+    weather: null,
     raceControlMessages: []
   };
 }

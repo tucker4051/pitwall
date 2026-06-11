@@ -41,12 +41,23 @@ export type TrackPositionState = {
   readonly updatedAt: string;
 };
 
+export type WeatherState = {
+  readonly airTemperature: number;
+  readonly trackTemperature: number;
+  readonly humidity: number;
+  readonly rainfall: number;
+  readonly windSpeed: number;
+  readonly windDirection: number;
+  readonly updatedAt: string;
+};
+
 export type CurrentRaceState = {
   readonly connection: ConnectionState;
   readonly session: SessionState;
   readonly drivers: ReadonlyMap<string, DriverState>;
   readonly timing: TimingState;
   readonly trackPositions: ReadonlyMap<string, TrackPositionState>;
+  readonly weather: WeatherState | null;
   readonly raceControlMessages: readonly RaceControlMessageState[];
 };
 
@@ -83,4 +94,9 @@ export type DashboardMessage =
       readonly payload: {
         readonly positions: readonly TrackPositionState[];
       };
+    }
+  | {
+      readonly type: "weather:update";
+      readonly sentAt: string;
+      readonly payload: WeatherState | null;
     };

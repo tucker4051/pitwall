@@ -1,5 +1,12 @@
 import type { MockSourceMessage } from "../mock/mock-messages.js";
-import type { ConnectionState, CurrentRaceState, DashboardMessage, DriverState, RaceControlMessageState, TrackPositionState } from "./types.js";
+import type {
+  ConnectionState,
+  CurrentRaceState,
+  DashboardMessage,
+  DriverState,
+  RaceControlMessageState,
+  TrackPositionState
+} from "./types.js";
 
 const MAX_RACE_CONTROL_MESSAGES = 10;
 
@@ -68,6 +75,16 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
         trackPositions
       };
     }
+
+    case "mock:weather":
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        weather: {
+          ...message.payload,
+          updatedAt: message.recordedAt
+        }
+      };
   }
 }
 
@@ -133,6 +150,13 @@ export function createDashboardMessageFromState(
         payload: {
           positions: Array.from(state.trackPositions.values())
         }
+      };
+
+    case "mock:weather":
+      return {
+        type: "weather:update",
+        sentAt,
+        payload: state.weather
       };
   }
 }
