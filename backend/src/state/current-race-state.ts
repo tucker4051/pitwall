@@ -26,6 +26,7 @@ export function createInitialCurrentRaceState(
     },
     trackPositions: new Map(),
     weather: null,
+    telemetry: new Map(),
     raceControlMessages: []
   };
 }

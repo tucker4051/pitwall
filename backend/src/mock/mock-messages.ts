@@ -33,6 +33,13 @@ export type MockSourceMessage =
       readonly type: "mock:weather";
       readonly recordedAt: string;
       readonly payload: MockWeather;
+    }
+  | {
+      readonly type: "mock:telemetry";
+      readonly recordedAt: string;
+      readonly payload: {
+        readonly snapshots: readonly MockTelemetrySnapshot[];
+      };
     };
 
 type MockTimingDriver = {
@@ -61,6 +68,15 @@ type MockWeather = {
   readonly rainfall: number;
   readonly windSpeed: number;
   readonly windDirection: number;
+};
+
+type MockTelemetrySnapshot = {
+  readonly driverNumber: number;
+  readonly speed: number;
+  readonly throttle: number;
+  readonly brake: number;
+  readonly gear: number;
+  readonly rpm: number;
 };
 
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
@@ -119,6 +135,13 @@ export function createMockSourceMessages(sequence: number, recordedAt = new Date
       type: "mock:weather",
       recordedAt: timestamp,
       payload: createMockWeather(sequence)
+    },
+    {
+      type: "mock:telemetry",
+      recordedAt: timestamp,
+      payload: {
+        snapshots: createMockTelemetrySnapshots(sequence)
+      }
     }
   ];
 }
@@ -149,4 +172,25 @@ function createMockWeather(sequence: number): MockWeather {
 
 function roundOneDecimal(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+function createMockTelemetrySnapshots(sequence: number): readonly MockTelemetrySnapshot[] {
+  return [
+    createMockTelemetrySnapshot(1, sequence, 0),
+    createMockTelemetrySnapshot(4, sequence, 1),
+    createMockTelemetrySnapshot(16, sequence, 2)
+  ];
+}
+
+function createMockTelemetrySnapshot(driverNumber: number, sequence: number, offset: number): MockTelemetrySnapshot {
+  const brakePulse = (sequence + offset) % 5 === 0;
+
+  return {
+    driverNumber,
+    speed: 210 + ((sequence * 7 + offset * 11) % 95),
+    throttle: brakePulse ? 18 : 74 + ((sequence + offset) % 21),
+    brake: brakePulse ? 1 : 0,
+    gear: 3 + ((sequence + offset) % 5),
+    rpm: 9_800 + ((sequence * 375 + offset * 650) % 3_200)
+  };
 }

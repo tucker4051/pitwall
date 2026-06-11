@@ -5,6 +5,7 @@ import type {
   DashboardMessage,
   DriverState,
   RaceControlMessageState,
+  TelemetrySnapshotState,
   TrackPositionState
 } from "./types.js";
 
@@ -85,6 +86,23 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
           updatedAt: message.recordedAt
         }
       };
+
+    case "mock:telemetry": {
+      const telemetry = new Map<number, TelemetrySnapshotState>();
+
+      for (const snapshot of message.payload.snapshots) {
+        telemetry.set(snapshot.driverNumber, {
+          ...snapshot,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        telemetry
+      };
+    }
   }
 }
 
@@ -157,6 +175,15 @@ export function createDashboardMessageFromState(
         type: "weather:update",
         sentAt,
         payload: state.weather
+      };
+
+    case "mock:telemetry":
+      return {
+        type: "telemetry:update",
+        sentAt,
+        payload: {
+          snapshots: Array.from(state.telemetry.values())
+        }
       };
   }
 }
