@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate:openf1-fixtures": "tsx test/openf1-mapper-probe.ts"
+    "validate:openf1-fixtures": "tsx test/openf1-mapper-probe.ts",
+    "validate:pipeline-stabilization": "tsx test/pipeline-stabilization-probe.ts"
   },
   "engines": {
     "node": ">=20.0.0"

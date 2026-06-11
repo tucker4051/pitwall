@@ -3,6 +3,7 @@ import mqtt, { type MqttClient } from "mqtt";
 import { routeSourceMessage } from "../messages/source-message-router.js";
 import type { OpenF1Config } from "./openf1-config.js";
 import { mapOpenF1Message } from "./openf1-message-mapper.js";
+import { createOpenF1MessageOrderTracker } from "./openf1-message-order.js";
 import type { OpenF1TokenManager } from "./openf1-token-manager.js";
 
 export type OpenF1Connector = {
@@ -12,6 +13,7 @@ export type OpenF1Connector = {
 
 export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1TokenManager): OpenF1Connector {
   let client: MqttClient | null = null;
+  const messageOrderTracker = createOpenF1MessageOrderTracker();
 
   return {
     async connect(): Promise<void> {
@@ -63,6 +65,17 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
         });
 
         if (!metadata.jsonParseSucceeded) {
+          return;
+        }
+
+        const orderResult = messageOrderTracker.shouldProcess(topic, metadata.parsedPayload);
+
+        if (!orderResult.accepted) {
+          console.log("OpenF1 MQTT message dropped due to older _id.", {
+            topic,
+            id: orderResult.id,
+            lastProcessedId: orderResult.lastProcessedId
+          });
           return;
         }
 

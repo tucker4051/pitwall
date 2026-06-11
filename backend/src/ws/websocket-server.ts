@@ -12,6 +12,7 @@ import {
   createDashboardMessageFromState,
   markStateStaleIfNeeded
 } from "../state/state-updater.js";
+import { createDashboardMessageScheduler } from "./dashboard-message-scheduler.js";
 
 type WebSocketServerOptions = {
   readonly dataMode: AppConfig["dataMode"];
@@ -69,6 +70,9 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
   let currentRaceState = createInitialCurrentRaceState("mock");
   let stalePauseUntil = 0;
   let hasSimulatedStalePause = false;
+  const dashboardMessageScheduler = createDashboardMessageScheduler((message) => {
+    sendJson(webSocket, message);
+  });
 
   const sendMockMessages = () => {
     const now = Date.now();
@@ -92,8 +96,7 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
       }
 
       currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
-      sendJson(
-        webSocket,
+      dashboardMessageScheduler.schedule(
         createDashboardMessageFromState(currentRaceState, routedMessage.message.type, new Date().toISOString())
       );
     }
@@ -112,12 +115,13 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
     }
 
     currentRaceState = staleResult.state;
-    sendJson(webSocket, createConnectionDashboardMessage(currentRaceState, new Date().toISOString()));
+    dashboardMessageScheduler.schedule(createConnectionDashboardMessage(currentRaceState, new Date().toISOString()));
   }, MOCK_STALE_CHECK_INTERVAL_MS);
 
   return () => {
     clearInterval(mockMessageInterval);
     clearInterval(staleCheckInterval);
+    dashboardMessageScheduler.stop();
   };
 }
 

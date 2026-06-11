@@ -57,13 +57,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "mock:race-control": {
-      const nextMessages: readonly RaceControlMessageState[] = [
-        ...message.payload.messages.map((raceControlMessage) => ({
+      const nextMessages = mergeRaceControlMessages(
+        state.raceControlMessages,
+        message.payload.messages.map((raceControlMessage) => ({
           ...raceControlMessage,
           receivedAt: message.recordedAt
-        })),
-        ...state.raceControlMessages
-      ].slice(0, MAX_RACE_CONTROL_MESSAGES);
+        }))
+      );
 
       return {
         ...state,
@@ -312,13 +312,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:race-control": {
-      const nextMessages: readonly RaceControlMessageState[] = [
-        ...message.payload.messages.map((raceControlMessage) => ({
+      const nextMessages = mergeRaceControlMessages(
+        state.raceControlMessages,
+        message.payload.messages.map((raceControlMessage) => ({
           ...raceControlMessage,
           receivedAt: message.recordedAt
-        })),
-        ...state.raceControlMessages
-      ].slice(0, MAX_RACE_CONTROL_MESSAGES);
+        }))
+      );
 
       return {
         ...state,
@@ -479,4 +479,19 @@ function createFreshConnectionState(connection: ConnectionState, receivedAt: str
     lastMessageReceivedAt: receivedAt,
     isStale: false
   };
+}
+
+function mergeRaceControlMessages(
+  existingMessages: readonly RaceControlMessageState[],
+  incomingMessages: readonly RaceControlMessageState[]
+): readonly RaceControlMessageState[] {
+  const messagesById = new Map(existingMessages.map((message) => [message.id, message]));
+
+  for (const message of incomingMessages) {
+    messagesById.set(message.id, message);
+  }
+
+  return Array.from(messagesById.values())
+    .sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))
+    .slice(0, MAX_RACE_CONTROL_MESSAGES);
 }

@@ -466,6 +466,12 @@ function readOpenF1Id(payload: Record<string, unknown>): string | number | undef
 }
 
 function readMessageIdentity(payload: Record<string, unknown>): string | undefined {
+  const key = readOptionalString(payload._key);
+
+  if (key) {
+    return key;
+  }
+
   const id = readOpenF1Id(payload);
   return id === undefined ? undefined : String(id);
 }
