@@ -1,37 +1,76 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
 const MAX_VISIBLE_MESSAGES = 6;
+const RECONNECT_DELAY_MS = 2_000;
 
 export function WebSocketDebugPanel() {
   const webSocketUrl = useMemo(() => process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:3001/ws", []);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [messages, setMessages] = useState<readonly string[]>([]);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldReconnectRef = useRef(true);
 
   useEffect(() => {
-    const socket = new WebSocket(webSocketUrl);
+    shouldReconnectRef.current = true;
 
-    socket.addEventListener("open", () => {
-      setStatus("connected");
-    });
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
 
-    socket.addEventListener("message", (event) => {
-      setMessages((currentMessages) => [formatMessage(event.data), ...currentMessages].slice(0, MAX_VISIBLE_MESSAGES));
-    });
+    const connect = () => {
+      if (socketRef.current && socketRef.current.readyState !== WebSocket.CLOSED) {
+        return;
+      }
 
-    socket.addEventListener("close", () => {
-      setStatus("disconnected");
-    });
+      const socket = new WebSocket(webSocketUrl);
+      socketRef.current = socket;
 
-    socket.addEventListener("error", () => {
-      setStatus("error");
-    });
+      socket.addEventListener("open", () => {
+        clearReconnectTimer();
+        setStatus("connected");
+      });
+
+      socket.addEventListener("message", (event) => {
+        setMessages((currentMessages) => [formatMessage(event.data), ...currentMessages].slice(0, MAX_VISIBLE_MESSAGES));
+      });
+
+      socket.addEventListener("close", () => {
+        socketRef.current = null;
+        setStatus("disconnected");
+
+        if (!shouldReconnectRef.current) {
+          return;
+        }
+
+        clearReconnectTimer();
+        reconnectTimerRef.current = setTimeout(() => {
+          setReconnectAttempt((currentAttempt) => currentAttempt + 1);
+          setStatus("connecting");
+          connect();
+        }, RECONNECT_DELAY_MS);
+      });
+
+      socket.addEventListener("error", () => {
+        setStatus("error");
+      });
+    };
+
+    connect();
 
     return () => {
-      socket.close();
+      shouldReconnectRef.current = false;
+      clearReconnectTimer();
+      socketRef.current?.close();
+      socketRef.current = null;
     };
   }, [webSocketUrl]);
 
@@ -44,6 +83,12 @@ export function WebSocketDebugPanel() {
         </div>
         <span className={getStatusClassName(status)}>{status}</span>
       </div>
+
+      {status === "disconnected" || status === "connecting" ? (
+        <p className="mt-3 text-xs text-slate-400">
+          {status === "disconnected" ? "Disconnected. Reconnect scheduled." : getConnectingLabel(reconnectAttempt)}
+        </p>
+      ) : null}
 
       <div className="mt-4 space-y-3">
         {messages.length > 0 ? (
@@ -70,6 +115,14 @@ function formatMessage(data: unknown): string {
   } catch {
     return data;
   }
+}
+
+function getConnectingLabel(reconnectAttempt: number): string {
+  if (reconnectAttempt === 0) {
+    return "Connecting.";
+  }
+
+  return `Reconnecting. Attempt ${reconnectAttempt}.`;
 }
 
 function getStatusClassName(status: ConnectionStatus): string {
