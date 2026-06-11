@@ -27,7 +27,12 @@ export function createOpenF1TokenManager(config: OpenF1Config): OpenF1TokenManag
         return cachedToken.accessToken;
       }
 
+      console.log("OpenF1 token requested.");
       cachedToken = await requestOpenF1Token(config);
+      console.log("OpenF1 token obtained.", {
+        expiresAt: new Date(cachedToken.expiresAtMs).toISOString()
+      });
+
       return cachedToken.accessToken;
     }
   };
@@ -65,13 +70,15 @@ function parseTokenResponse(value: unknown): OpenF1TokenResponse {
     throw new Error("OpenF1 token response must be an object.");
   }
 
-  if (!isString(value.access_token) || !isNumber(value.expires_in) || !isString(value.token_type)) {
+  const expiresIn = parseExpiresIn(value.expires_in);
+
+  if (!isString(value.access_token) || expiresIn === null || !isString(value.token_type)) {
     throw new Error("OpenF1 token response is missing required fields.");
   }
 
   return {
     access_token: value.access_token,
-    expires_in: value.expires_in,
+    expires_in: expiresIn,
     token_type: value.token_type
   };
 }
@@ -90,4 +97,17 @@ function isString(value: unknown): value is string {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function parseExpiresIn(value: unknown): number | null {
+  if (isNumber(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }

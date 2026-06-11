@@ -20,7 +20,7 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
       console.log("OpenF1 MQTT connecting.", {
         host: config.mqtt.host,
         port: config.mqtt.port,
-        topics: config.topics
+        topicCount: config.topics.length
       });
 
       const accessToken = await tokenManager.getValidAccessToken();
@@ -50,14 +50,24 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
       });
 
       client.on("message", (topic, payload) => {
+        const metadata = parseMessageMetadata(payload);
+
         console.log("OpenF1 MQTT message received.", {
           topic,
-          messageLength: payload.length
+          payloadBytes: payload.length,
+          jsonParseSucceeded: metadata.jsonParseSucceeded,
+          hasId: metadata.hasId,
+          hasKey: metadata.hasKey
         });
       });
 
       client.on("reconnect", () => {
         console.log("OpenF1 MQTT reconnecting.");
+        refreshCredentialsForReconnect(client, tokenManager).catch((error: unknown) => {
+          console.error("OpenF1 MQTT token refresh before reconnect failed.", {
+            message: getSafeErrorMessage(error)
+          });
+        });
       });
 
       client.on("offline", () => {
@@ -70,7 +80,7 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
 
       client.on("error", (error) => {
         console.error("OpenF1 MQTT error.", {
-          message: error.message
+          message: getSafeErrorMessage(error)
         });
       });
     },
@@ -90,4 +100,59 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
       });
     }
   };
+}
+
+type MessageMetadata = {
+  readonly jsonParseSucceeded: boolean;
+  readonly hasId: boolean;
+  readonly hasKey: boolean;
+};
+
+function parseMessageMetadata(payload: Buffer): MessageMetadata {
+  try {
+    const value = JSON.parse(payload.toString("utf8")) as unknown;
+
+    if (!isRecord(value)) {
+      return {
+        jsonParseSucceeded: true,
+        hasId: false,
+        hasKey: false
+      };
+    }
+
+    return {
+      jsonParseSucceeded: true,
+      hasId: "_id" in value,
+      hasKey: "_key" in value
+    };
+  } catch {
+    return {
+      jsonParseSucceeded: false,
+      hasId: false,
+      hasKey: false
+    };
+  }
+}
+
+async function refreshCredentialsForReconnect(
+  client: MqttClient | null,
+  tokenManager: OpenF1TokenManager
+): Promise<void> {
+  if (!client) {
+    return;
+  }
+
+  client.options.password = await tokenManager.getValidAccessToken();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getSafeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
