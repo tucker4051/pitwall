@@ -5,6 +5,7 @@ import { applyMockMessageToState, createDashboardMessageFromState } from "../src
 import { OPENF1_FIXTURE_MESSAGES, OPENF1_FIXTURE_RECEIVED_AT } from "./fixtures/openf1/openf1-fixtures.js";
 
 const expectedDashboardTypes = new Set([
+  "session:update",
   "drivers:update",
   "timing:update",
   "race-control:update",
@@ -53,6 +54,9 @@ console.log(
     mappedFixtures: OPENF1_FIXTURE_MESSAGES.length,
     sourceTypes: Array.from(sourceTypes),
     dashboardTypes: Array.from(dashboardTypes),
+    sessionName: state.session.name,
+    sessionType: state.session.type,
+    timingLap: state.timing.lap,
     driverCount: state.drivers.size,
     raceControlMessageCount: state.raceControlMessages.length,
     trackPositionCount: state.trackPositions.size,

@@ -22,6 +22,9 @@ export type DriverState = {
 
 export type TimingDriverState = DriverState & {
   readonly gapToLeader: string;
+  readonly intervalToAhead?: string;
+  readonly lastLapTime?: string;
+  readonly bestLapTime?: string;
 };
 
 export type TimingState = {
@@ -110,6 +113,11 @@ export type DashboardMessage =
       readonly type: "timing:update";
       readonly sentAt: string;
       readonly payload: TimingState;
+    }
+  | {
+      readonly type: "session:update";
+      readonly sentAt: string;
+      readonly payload: SessionState;
     }
   | {
       readonly type: "drivers:update";

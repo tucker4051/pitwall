@@ -46,21 +46,40 @@ export function validateSourceMessage(message: unknown): SourceMessageValidation
       return validateTelemetryMessage(message);
     case "mock:tyre-stint":
       return validateTyreStintMessage(message);
+    case "openf1:session":
+      return validateOpenF1SessionMessage(message);
     case "openf1:drivers":
       return validateOpenF1DriversMessage(message);
     case "openf1:position":
       return validateOpenF1PositionMessage(message);
+    case "openf1:timing":
+      return validateOpenF1TimingMessage(message);
     case "openf1:location":
       return validateLocationMessage(message);
     case "openf1:race-control":
       return validateOpenF1RaceControlMessage(message);
     case "openf1:telemetry":
       return validateTelemetryMessage(message);
+    case "openf1:pit":
     case "openf1:tyre-stint":
       return validateTyreStintMessage(message);
     case "openf1:weather":
       return validateWeatherMessage(message);
   }
+}
+
+function validateOpenF1SessionMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (
+    !isRecord(payload) ||
+    !isString(payload.sessionName) ||
+    (payload.sessionType !== "Race" && payload.sessionType !== "Qualifying" && payload.sessionType !== "Practice")
+  ) {
+    return invalid("openf1:session payload must include sessionName and supported sessionType");
+  }
+
+  return valid(message as SourceMessage);
 }
 
 function validateConnectionMessage(message: Record<string, unknown>): SourceMessageValidationResult {
@@ -225,6 +244,27 @@ function validateOpenF1PositionMessage(message: Record<string, unknown>): Source
   return positionsAreValid ? valid(message as SourceMessage) : invalid("openf1:position positions are malformed");
 }
 
+function validateOpenF1TimingMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (!isRecord(payload) || !optionalNumber(payload.lap) || !Array.isArray(payload.drivers)) {
+    return invalid("openf1:timing payload must include lap and drivers");
+  }
+
+  const driversAreValid = payload.drivers.every(
+    (driver) =>
+      isRecord(driver) &&
+      isNumber(driver.driverNumber) &&
+      optionalNumber(driver.position) &&
+      optionalString(driver.gapToLeader) &&
+      optionalString(driver.intervalToAhead) &&
+      optionalString(driver.lastLapTime) &&
+      optionalString(driver.bestLapTime)
+  );
+
+  return driversAreValid ? valid(message as SourceMessage) : invalid("openf1:timing drivers are malformed");
+}
+
 function validateOpenF1RaceControlMessage(message: Record<string, unknown>): SourceMessageValidationResult {
   const payload = message.payload;
 
@@ -273,6 +313,10 @@ function isString(value: unknown): value is string {
 
 function optionalString(value: unknown): boolean {
   return value === undefined || typeof value === "string";
+}
+
+function optionalNumber(value: unknown): boolean {
+  return value === null || value === undefined || isNumber(value);
 }
 
 function isNumber(value: unknown): value is number {

@@ -66,6 +66,15 @@ export type MockSourceMessage =
 
 export type OpenF1SourceMessage =
   | {
+      readonly type: "openf1:session";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/sessions" };
+      readonly payload: {
+        readonly sessionName: string;
+        readonly sessionType: "Race" | "Qualifying" | "Practice";
+      };
+    }
+  | {
       readonly type: "openf1:drivers";
       readonly recordedAt: string;
       readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/drivers" };
@@ -79,6 +88,18 @@ export type OpenF1SourceMessage =
       readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/position" };
       readonly payload: {
         readonly positions: readonly OpenF1InternalPosition[];
+      };
+    }
+  | {
+      readonly type: "openf1:timing";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & {
+        readonly source: "openf1";
+        readonly topic: "v1/laps" | "v1/intervals";
+      };
+      readonly payload: {
+        readonly lap: number | null;
+        readonly drivers: readonly OpenF1InternalTimingDriver[];
       };
     }
   | {
@@ -109,6 +130,14 @@ export type OpenF1SourceMessage =
       readonly type: "openf1:tyre-stint";
       readonly recordedAt: string;
       readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/stints" };
+      readonly payload: {
+        readonly stints: readonly MockTyreStint[];
+      };
+    }
+  | {
+      readonly type: "openf1:pit";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/pit" };
       readonly payload: {
         readonly stints: readonly MockTyreStint[];
       };
@@ -183,6 +212,15 @@ export type OpenF1InternalPosition = {
   readonly position: number;
 };
 
+export type OpenF1InternalTimingDriver = {
+  readonly driverNumber: number;
+  readonly position?: number;
+  readonly gapToLeader?: string;
+  readonly intervalToAhead?: string;
+  readonly lastLapTime?: string;
+  readonly bestLapTime?: string;
+};
+
 export type OpenF1InternalRaceControlMessage = {
   readonly id: string;
   readonly category: "session" | "flag";
@@ -201,10 +239,13 @@ export const MOCK_SOURCE_MESSAGE_TYPES = [
 
 export const SOURCE_MESSAGE_TYPES = [
   ...MOCK_SOURCE_MESSAGE_TYPES,
+  "openf1:session",
   "openf1:drivers",
   "openf1:position",
+  "openf1:timing",
   "openf1:location",
   "openf1:race-control",
+  "openf1:pit",
   "openf1:telemetry",
   "openf1:tyre-stint",
   "openf1:weather"

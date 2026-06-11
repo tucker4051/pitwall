@@ -6,6 +6,7 @@ import type {
   DriverState,
   RaceControlMessageState,
   TelemetrySnapshotState,
+  TimingDriverState,
   TrackPositionState,
   TyreStintState
 } from "./types.js";
@@ -15,6 +16,16 @@ const MAX_RACE_CONTROL_MESSAGES = 10;
 export function applyMockMessageToState(state: CurrentRaceState, message: SourceMessage): CurrentRaceState {
   switch (message.type) {
     case "mock:connection":
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        session: {
+          name: message.payload.sessionName,
+          type: message.payload.sessionType
+        }
+      };
+
+    case "openf1:session":
       return {
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
@@ -173,6 +184,27 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       };
     }
 
+    case "openf1:pit": {
+      const tyreStints = new Map(state.tyreStints);
+
+      for (const stint of message.payload.stints) {
+        const existingStint = tyreStints.get(stint.driverNumber);
+
+        tyreStints.set(stint.driverNumber, {
+          ...existingStint,
+          ...stint,
+          compound: existingStint?.compound ?? stint.compound,
+          updatedAt: message.recordedAt
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        tyreStints
+      };
+    }
+
     case "openf1:drivers": {
       const drivers = new Map(state.drivers);
 
@@ -227,6 +259,54 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         timing: {
           ...state.timing,
           drivers: timingDrivers
+        }
+      };
+    }
+
+    case "openf1:timing": {
+      const drivers = new Map(state.drivers);
+      const timingDrivers = [...state.timing.drivers];
+
+      for (const driverUpdate of message.payload.drivers) {
+        const key = String(driverUpdate.driverNumber);
+        const existingDriver = drivers.get(key);
+        const abbreviation = existingDriver?.abbreviation ?? String(driverUpdate.driverNumber);
+        const existingTimingDriver = timingDrivers.find((driver) => driver.abbreviation === abbreviation);
+        const nextTimingDriver: TimingDriverState = {
+          ...existingTimingDriver,
+          ...existingDriver,
+          driverNumber: driverUpdate.driverNumber,
+          abbreviation,
+          position: driverUpdate.position ?? existingDriver?.position ?? existingTimingDriver?.position ?? 0,
+          gapToLeader: driverUpdate.gapToLeader ?? existingTimingDriver?.gapToLeader ?? "",
+          intervalToAhead: driverUpdate.intervalToAhead ?? existingTimingDriver?.intervalToAhead,
+          lastLapTime: driverUpdate.lastLapTime ?? existingTimingDriver?.lastLapTime,
+          bestLapTime: driverUpdate.bestLapTime ?? existingTimingDriver?.bestLapTime
+        };
+
+        drivers.set(key, {
+          ...existingDriver,
+          driverNumber: driverUpdate.driverNumber,
+          abbreviation,
+          position: nextTimingDriver.position
+        });
+
+        const existingIndex = timingDrivers.findIndex((driver) => driver.abbreviation === abbreviation);
+
+        if (existingIndex >= 0) {
+          timingDrivers[existingIndex] = nextTimingDriver;
+        } else {
+          timingDrivers.push(nextTimingDriver);
+        }
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        drivers,
+        timing: {
+          lap: message.payload.lap ?? state.timing.lap,
+          drivers: timingDrivers.sort((a, b) => a.position - b.position)
         }
       };
     }
@@ -298,8 +378,16 @@ export function createDashboardMessageFromState(
     case "mock:connection":
       return createConnectionDashboardMessage(state, sentAt);
 
+    case "openf1:session":
+      return {
+        type: "session:update",
+        sentAt,
+        payload: state.session
+      };
+
     case "mock:timing":
     case "openf1:position":
+    case "openf1:timing":
       return {
         type: "timing:update",
         sentAt,
@@ -354,6 +442,7 @@ export function createDashboardMessageFromState(
       };
 
     case "mock:tyre-stint":
+    case "openf1:pit":
     case "openf1:tyre-stint":
       return {
         type: "stints:update",

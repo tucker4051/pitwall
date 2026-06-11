@@ -27,21 +27,59 @@ export function mapOpenF1Message(topic: string, payload: unknown, receivedAt = n
   }
 
   switch (topic) {
+    case "v1/sessions":
+      return mapSessionMessage(topic, payload, receivedAt);
     case "v1/drivers":
       return mapDriverMessage(topic, payload, receivedAt);
     case "v1/position":
       return mapPositionMessage(topic, payload, receivedAt);
+    case "v1/intervals":
+      return mapIntervalMessage(topic, payload, receivedAt);
+    case "v1/laps":
+      return mapLapMessage(topic, payload, receivedAt);
     case "v1/location":
       return mapLocationMessage(topic, payload, receivedAt);
     case "v1/race_control":
       return mapRaceControlMessage(topic, payload, receivedAt);
     case "v1/stints":
       return mapStintMessage(topic, payload, receivedAt);
+    case "v1/pit":
+      return mapPitMessage(topic, payload, receivedAt);
     case "v1/weather":
       return mapWeatherMessage(topic, payload, receivedAt);
     case "v1/car_data":
       return mapCarDataMessage(topic, payload, receivedAt);
   }
+}
+
+function mapSessionMessage(
+  topic: "v1/sessions",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  const sessionType = normalizeSessionType(payload.session_type);
+
+  if (!isString(payload.session_name) || !sessionType) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:session",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        sessionName: payload.session_name,
+        sessionType
+      }
+    }
+  };
 }
 
 function mapDriverMessage(
@@ -103,6 +141,73 @@ function mapPositionMessage(
           {
             driverNumber: payload.driver_number,
             position: payload.position
+          }
+        ]
+      }
+    }
+  };
+}
+
+function mapLapMessage(
+  topic: "v1/laps",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  if (!isNumber(payload.driver_number) || !isNumber(payload.lap_number)) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:timing",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        lap: payload.lap_number,
+        drivers: [
+          {
+            driverNumber: payload.driver_number,
+            lastLapTime: formatDuration(payload.lap_duration)
+          }
+        ]
+      }
+    }
+  };
+}
+
+function mapIntervalMessage(
+  topic: "v1/intervals",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  if (!isNumber(payload.driver_number)) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:timing",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        lap: null,
+        drivers: [
+          {
+            driverNumber: payload.driver_number,
+            gapToLeader: formatInterval(payload.gap_to_leader),
+            intervalToAhead: formatInterval(payload.interval)
           }
         ]
       }
@@ -307,6 +412,41 @@ function mapStintMessage(
   };
 }
 
+function mapPitMessage(
+  topic: "v1/pit",
+  payload: Record<string, unknown>,
+  receivedAt: Date
+): OpenF1MappingResult {
+  if (!isNumber(payload.driver_number) || !isNumber(payload.lap_number)) {
+    return {
+      mapped: false,
+      reason: "malformed-payload"
+    };
+  }
+
+  const recordedAt = receivedAt.toISOString();
+
+  return {
+    mapped: true,
+    message: {
+      type: "openf1:pit",
+      recordedAt,
+      metadata: createMetadata(topic, payload, recordedAt),
+      payload: {
+        stints: [
+          {
+            driverNumber: payload.driver_number,
+            compound: "medium",
+            stintNumber: 1,
+            stintAgeLaps: payload.lap_number,
+            pitStops: 1
+          }
+        ]
+      }
+    }
+  };
+}
+
 function createMetadata<TTopic extends OpenF1MappedTopic>(
   topic: TTopic,
   payload: Record<string, unknown>,
@@ -358,4 +498,46 @@ function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | undefin
   }
 
   return undefined;
+}
+
+function normalizeSessionType(value: unknown): "Race" | "Qualifying" | "Practice" | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.toLowerCase();
+
+  if (normalized.includes("race")) {
+    return "Race";
+  }
+
+  if (normalized.includes("qualifying")) {
+    return "Qualifying";
+  }
+
+  if (normalized.includes("practice")) {
+    return "Practice";
+  }
+
+  return undefined;
+}
+
+function formatDuration(value: unknown): string | undefined {
+  if (!isNumber(value)) {
+    return undefined;
+  }
+
+  return value.toFixed(3);
+}
+
+function formatInterval(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+
+  if (!isNumber(value)) {
+    return undefined;
+  }
+
+  return value === 0 ? "LEADER" : `+${value.toFixed(3)}`;
 }
