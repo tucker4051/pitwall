@@ -1,13 +1,13 @@
 import {
-  MOCK_SOURCE_MESSAGE_TYPES,
-  type MockSourceMessage,
-  type MockTyreCompound
+  SOURCE_MESSAGE_TYPES,
+  type MockTyreCompound,
+  type SourceMessage
 } from "./source-message-types.js";
 
 export type SourceMessageValidationResult =
   | {
       readonly valid: true;
-      readonly message: MockSourceMessage;
+      readonly message: SourceMessage;
     }
   | {
       readonly valid: false;
@@ -46,6 +46,14 @@ export function validateSourceMessage(message: unknown): SourceMessageValidation
       return validateTelemetryMessage(message);
     case "mock:tyre-stint":
       return validateTyreStintMessage(message);
+    case "openf1:drivers":
+      return validateOpenF1DriversMessage(message);
+    case "openf1:position":
+      return validateOpenF1PositionMessage(message);
+    case "openf1:race-control":
+      return validateOpenF1RaceControlMessage(message);
+    case "openf1:weather":
+      return validateWeatherMessage(message);
   }
 }
 
@@ -56,7 +64,7 @@ function validateConnectionMessage(message: Record<string, unknown>): SourceMess
     return invalid("mock:connection payload must include sessionName and sessionType");
   }
 
-  return valid(message as MockSourceMessage);
+  return valid(message as SourceMessage);
 }
 
 function validateTimingMessage(message: Record<string, unknown>): SourceMessageValidationResult {
@@ -74,7 +82,7 @@ function validateTimingMessage(message: Record<string, unknown>): SourceMessageV
       isString(driver.gapToLeader)
   );
 
-  return driversAreValid ? valid(message as MockSourceMessage) : invalid("mock:timing drivers are malformed");
+  return driversAreValid ? valid(message as SourceMessage) : invalid("mock:timing drivers are malformed");
 }
 
 function validateRaceControlMessage(message: Record<string, unknown>): SourceMessageValidationResult {
@@ -93,7 +101,7 @@ function validateRaceControlMessage(message: Record<string, unknown>): SourceMes
   );
 
   return messagesAreValid
-    ? valid(message as MockSourceMessage)
+    ? valid(message as SourceMessage)
     : invalid("mock:race-control messages are malformed");
 }
 
@@ -113,7 +121,7 @@ function validateLocationMessage(message: Record<string, unknown>): SourceMessag
       isNumber(position.z)
   );
 
-  return positionsAreValid ? valid(message as MockSourceMessage) : invalid("mock:location positions are malformed");
+  return positionsAreValid ? valid(message as SourceMessage) : invalid("mock:location positions are malformed");
 }
 
 function validateWeatherMessage(message: Record<string, unknown>): SourceMessageValidationResult {
@@ -131,7 +139,7 @@ function validateWeatherMessage(message: Record<string, unknown>): SourceMessage
     return invalid("mock:weather payload is malformed");
   }
 
-  return valid(message as MockSourceMessage);
+  return valid(message as SourceMessage);
 }
 
 function validateTelemetryMessage(message: Record<string, unknown>): SourceMessageValidationResult {
@@ -153,7 +161,7 @@ function validateTelemetryMessage(message: Record<string, unknown>): SourceMessa
   );
 
   return snapshotsAreValid
-    ? valid(message as MockSourceMessage)
+    ? valid(message as SourceMessage)
     : invalid("mock:telemetry snapshots are malformed");
 }
 
@@ -174,10 +182,64 @@ function validateTyreStintMessage(message: Record<string, unknown>): SourceMessa
       isNumber(stint.pitStops)
   );
 
-  return stintsAreValid ? valid(message as MockSourceMessage) : invalid("mock:tyre-stint stints are malformed");
+  return stintsAreValid ? valid(message as SourceMessage) : invalid("mock:tyre-stint stints are malformed");
 }
 
-function valid(message: MockSourceMessage): SourceMessageValidationResult {
+function validateOpenF1DriversMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (!isRecord(payload) || !Array.isArray(payload.drivers)) {
+    return invalid("openf1:drivers payload must include drivers");
+  }
+
+  const driversAreValid = payload.drivers.every(
+    (driver) =>
+      isRecord(driver) &&
+      isNumber(driver.driverNumber) &&
+      isString(driver.abbreviation) &&
+      optionalString(driver.fullName) &&
+      optionalString(driver.teamName)
+  );
+
+  return driversAreValid ? valid(message as SourceMessage) : invalid("openf1:drivers drivers are malformed");
+}
+
+function validateOpenF1PositionMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (!isRecord(payload) || !Array.isArray(payload.positions)) {
+    return invalid("openf1:position payload must include positions");
+  }
+
+  const positionsAreValid = payload.positions.every(
+    (position) =>
+      isRecord(position) && isNumber(position.driverNumber) && isNumber(position.position)
+  );
+
+  return positionsAreValid ? valid(message as SourceMessage) : invalid("openf1:position positions are malformed");
+}
+
+function validateOpenF1RaceControlMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (!isRecord(payload) || !Array.isArray(payload.messages)) {
+    return invalid("openf1:race-control payload must include messages");
+  }
+
+  const messagesAreValid = payload.messages.every(
+    (raceControlMessage) =>
+      isRecord(raceControlMessage) &&
+      isString(raceControlMessage.id) &&
+      (raceControlMessage.category === "session" || raceControlMessage.category === "flag") &&
+      isString(raceControlMessage.message)
+  );
+
+  return messagesAreValid
+    ? valid(message as SourceMessage)
+    : invalid("openf1:race-control messages are malformed");
+}
+
+function valid(message: SourceMessage): SourceMessageValidationResult {
   return {
     valid: true,
     message
@@ -191,8 +253,8 @@ function invalid(reason: string): SourceMessageValidationResult {
   };
 }
 
-function isKnownSourceType(value: unknown): value is MockSourceMessage["type"] {
-  return isString(value) && MOCK_SOURCE_MESSAGE_TYPES.includes(value as MockSourceMessage["type"]);
+function isKnownSourceType(value: unknown): value is SourceMessage["type"] {
+  return isString(value) && SOURCE_MESSAGE_TYPES.includes(value as SourceMessage["type"]);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -201,6 +263,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function optionalString(value: unknown): boolean {
+  return value === undefined || typeof value === "string";
 }
 
 function isNumber(value: unknown): value is number {

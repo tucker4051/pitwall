@@ -1,10 +1,10 @@
-import type { MockSourceMessage } from "./source-message-types.js";
+import type { SourceMessage } from "./source-message-types.js";
 import { validateSourceMessage } from "./source-message-validation.js";
 
 export type RoutedSourceMessage =
   | {
       readonly routed: true;
-      readonly message: MockSourceMessage;
+      readonly message: SourceMessage;
     }
   | {
       readonly routed: false;

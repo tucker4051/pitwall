@@ -1,6 +1,8 @@
 import mqtt, { type MqttClient } from "mqtt";
 
+import { routeSourceMessage } from "../messages/source-message-router.js";
 import type { OpenF1Config } from "./openf1-config.js";
+import { mapOpenF1Message } from "./openf1-message-mapper.js";
 import type { OpenF1TokenManager } from "./openf1-token-manager.js";
 
 export type OpenF1Connector = {
@@ -59,6 +61,31 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
           hasId: metadata.hasId,
           hasKey: metadata.hasKey
         });
+
+        if (!metadata.jsonParseSucceeded) {
+          return;
+        }
+
+        const mappedMessage = mapOpenF1Message(topic, metadata.parsedPayload, new Date());
+
+        if (!mappedMessage.mapped) {
+          console.log("OpenF1 MQTT message not mapped.", {
+            topic,
+            reason: mappedMessage.reason
+          });
+          return;
+        }
+
+        const routedMessage = routeSourceMessage(mappedMessage.message);
+
+        if (!routedMessage.routed) {
+          return;
+        }
+
+        console.log("OpenF1 MQTT message mapped to internal source message.", {
+          topic,
+          sourceType: routedMessage.message.type
+        });
       });
 
       client.on("reconnect", () => {
@@ -106,6 +133,7 @@ type MessageMetadata = {
   readonly jsonParseSucceeded: boolean;
   readonly hasId: boolean;
   readonly hasKey: boolean;
+  readonly parsedPayload: unknown;
 };
 
 function parseMessageMetadata(payload: Buffer): MessageMetadata {
@@ -116,20 +144,23 @@ function parseMessageMetadata(payload: Buffer): MessageMetadata {
       return {
         jsonParseSucceeded: true,
         hasId: false,
-        hasKey: false
+        hasKey: false,
+        parsedPayload: value
       };
     }
 
     return {
       jsonParseSucceeded: true,
       hasId: "_id" in value,
-      hasKey: "_key" in value
+      hasKey: "_key" in value,
+      parsedPayload: value
     };
   } catch {
     return {
       jsonParseSucceeded: false,
       hasId: false,
-      hasKey: false
+      hasKey: false,
+      parsedPayload: null
     };
   }
 }

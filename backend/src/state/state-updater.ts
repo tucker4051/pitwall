@@ -1,4 +1,4 @@
-import type { MockSourceMessage } from "../messages/source-message-types.js";
+import type { SourceMessage } from "../messages/source-message-types.js";
 import type {
   ConnectionState,
   CurrentRaceState,
@@ -12,7 +12,7 @@ import type {
 
 const MAX_RACE_CONTROL_MESSAGES = 10;
 
-export function applyMockMessageToState(state: CurrentRaceState, message: MockSourceMessage): CurrentRaceState {
+export function applyMockMessageToState(state: CurrentRaceState, message: SourceMessage): CurrentRaceState {
   switch (message.type) {
     case "mock:connection":
       return {
@@ -121,6 +121,90 @@ export function applyMockMessageToState(state: CurrentRaceState, message: MockSo
         tyreStints
       };
     }
+
+    case "openf1:drivers": {
+      const drivers = new Map(state.drivers);
+
+      for (const driver of message.payload.drivers) {
+        const key = String(driver.driverNumber);
+        const existingDriver = drivers.get(key);
+
+        drivers.set(key, {
+          ...existingDriver,
+          driverNumber: driver.driverNumber,
+          abbreviation: driver.abbreviation,
+          position: existingDriver?.position ?? 0,
+          fullName: driver.fullName,
+          teamName: driver.teamName
+        });
+      }
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        drivers
+      };
+    }
+
+    case "openf1:position": {
+      const drivers = new Map(state.drivers);
+      const timingDrivers = [...message.payload.positions]
+        .sort((a, b) => a.position - b.position)
+        .map((position) => {
+          const key = String(position.driverNumber);
+          const existingDriver = drivers.get(key);
+          const abbreviation = existingDriver?.abbreviation ?? String(position.driverNumber);
+
+          drivers.set(key, {
+            ...existingDriver,
+            driverNumber: position.driverNumber,
+            abbreviation,
+            position: position.position
+          });
+
+          return {
+            position: position.position,
+            abbreviation,
+            gapToLeader: position.position === 1 ? "LEADER" : ""
+          };
+        });
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        drivers,
+        timing: {
+          ...state.timing,
+          drivers: timingDrivers
+        }
+      };
+    }
+
+    case "openf1:race-control": {
+      const nextMessages: readonly RaceControlMessageState[] = [
+        ...message.payload.messages.map((raceControlMessage) => ({
+          ...raceControlMessage,
+          receivedAt: message.recordedAt
+        })),
+        ...state.raceControlMessages
+      ].slice(0, MAX_RACE_CONTROL_MESSAGES);
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        raceControlMessages: nextMessages
+      };
+    }
+
+    case "openf1:weather":
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        weather: {
+          ...message.payload,
+          updatedAt: message.recordedAt
+        }
+      };
   }
 }
 
@@ -156,7 +240,7 @@ export function markStateStaleIfNeeded(
 
 export function createDashboardMessageFromState(
   state: CurrentRaceState,
-  sourceType: MockSourceMessage["type"],
+  sourceType: SourceMessage["type"],
   sentAt: string
 ): DashboardMessage {
   switch (sourceType) {
@@ -164,13 +248,24 @@ export function createDashboardMessageFromState(
       return createConnectionDashboardMessage(state, sentAt);
 
     case "mock:timing":
+    case "openf1:position":
       return {
         type: "timing:update",
         sentAt,
         payload: state.timing
       };
 
+    case "openf1:drivers":
+      return {
+        type: "drivers:update",
+        sentAt,
+        payload: {
+          drivers: Array.from(state.drivers.values())
+        }
+      };
+
     case "mock:race-control":
+    case "openf1:race-control":
       return {
         type: "race-control:update",
         sentAt,
@@ -189,6 +284,7 @@ export function createDashboardMessageFromState(
       };
 
     case "mock:weather":
+    case "openf1:weather":
       return {
         type: "weather:update",
         sentAt,

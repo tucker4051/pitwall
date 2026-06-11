@@ -1,0 +1,52 @@
+import { routeSourceMessage } from "../src/messages/source-message-router.js";
+import { mapOpenF1Message } from "../src/openf1/openf1-message-mapper.js";
+import { createInitialCurrentRaceState } from "../src/state/current-race-state.js";
+import { applyMockMessageToState, createDashboardMessageFromState } from "../src/state/state-updater.js";
+import { OPENF1_FIXTURE_MESSAGES, OPENF1_FIXTURE_RECEIVED_AT } from "./fixtures/openf1/openf1-fixtures.js";
+
+const expectedDashboardTypes = new Set(["drivers:update", "timing:update", "race-control:update", "weather:update"]);
+const dashboardTypes = new Set<string>();
+const sourceTypes = new Set<string>();
+let state = createInitialCurrentRaceState("live");
+
+for (const fixture of OPENF1_FIXTURE_MESSAGES) {
+  const mappedMessage = mapOpenF1Message(fixture.topic, fixture.payload, OPENF1_FIXTURE_RECEIVED_AT);
+
+  if (!mappedMessage.mapped) {
+    throw new Error(`Fixture ${fixture.topic} failed to map: ${mappedMessage.reason}`);
+  }
+
+  const routedMessage = routeSourceMessage(mappedMessage.message);
+
+  if (!routedMessage.routed) {
+    throw new Error(`Fixture ${fixture.topic} failed source routing.`);
+  }
+
+  sourceTypes.add(routedMessage.message.type);
+  state = applyMockMessageToState(state, routedMessage.message);
+
+  const dashboardMessage = createDashboardMessageFromState(
+    state,
+    routedMessage.message.type,
+    OPENF1_FIXTURE_RECEIVED_AT.toISOString()
+  );
+
+  dashboardTypes.add(dashboardMessage.type);
+}
+
+for (const dashboardType of expectedDashboardTypes) {
+  if (!dashboardTypes.has(dashboardType)) {
+    throw new Error(`Expected dashboard message ${dashboardType} was not produced.`);
+  }
+}
+
+console.log(
+  JSON.stringify({
+    mappedFixtures: OPENF1_FIXTURE_MESSAGES.length,
+    sourceTypes: Array.from(sourceTypes),
+    dashboardTypes: Array.from(dashboardTypes),
+    driverCount: state.drivers.size,
+    raceControlMessageCount: state.raceControlMessages.length,
+    hasWeather: state.weather !== null
+  })
+);

@@ -13,8 +13,11 @@ export type SessionState = {
 };
 
 export type DriverState = {
+  readonly driverNumber?: number;
   readonly abbreviation: string;
   readonly position: number;
+  readonly fullName?: string;
+  readonly teamName?: string;
 };
 
 export type TimingDriverState = DriverState & {
@@ -107,6 +110,13 @@ export type DashboardMessage =
       readonly type: "timing:update";
       readonly sentAt: string;
       readonly payload: TimingState;
+    }
+  | {
+      readonly type: "drivers:update";
+      readonly sentAt: string;
+      readonly payload: {
+        readonly drivers: readonly DriverState[];
+      };
     }
   | {
       readonly type: "race-control:update";
