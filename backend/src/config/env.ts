@@ -9,6 +9,7 @@ export type AppConfig = {
     readonly username?: string;
     readonly password?: string;
     readonly tokenUrl: string;
+    readonly restBaseUrl: string;
     readonly mqttHost: string;
     readonly mqttPort: number;
     readonly mqttClientUsername?: string;
@@ -19,6 +20,7 @@ export type AppConfig = {
 const DEFAULT_BACKEND_PORT = 3001;
 const DEFAULT_APP_NAME = "PitWall";
 const DEFAULT_OPENF1_TOKEN_URL = "https://api.openf1.org/token";
+const DEFAULT_OPENF1_REST_BASE_URL = "https://api.openf1.org/v1/";
 const DEFAULT_OPENF1_MQTT_HOST = "mqtt.openf1.org";
 const DEFAULT_OPENF1_MQTT_PORT = 8883;
 const DEFAULT_OPENF1_MQTT_WS_URL = "wss://mqtt.openf1.org:8084/mqtt";
@@ -29,6 +31,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     username: normalizeOptionalValue(env.OPENF1_USERNAME),
     password: normalizeOptionalValue(env.OPENF1_PASSWORD),
     tokenUrl: env.OPENF1_TOKEN_URL ?? DEFAULT_OPENF1_TOKEN_URL,
+    restBaseUrl: env.OPENF1_REST_BASE_URL ?? DEFAULT_OPENF1_REST_BASE_URL,
     mqttHost: env.OPENF1_MQTT_HOST ?? DEFAULT_OPENF1_MQTT_HOST,
     mqttPort: parsePort(env.OPENF1_MQTT_PORT, "OPENF1_MQTT_PORT", DEFAULT_OPENF1_MQTT_PORT),
     mqttClientUsername: normalizeOptionalValue(env.OPENF1_MQTT_CLIENT_USERNAME),
@@ -97,6 +100,10 @@ function validateLiveOpenF1Config(config: OpenF1EnvConfig): void {
 
   if (!config.tokenUrl) {
     missing.push("OPENF1_TOKEN_URL");
+  }
+
+  if (!config.restBaseUrl) {
+    missing.push("OPENF1_REST_BASE_URL");
   }
 
   if (!config.mqttHost) {

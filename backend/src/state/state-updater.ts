@@ -249,8 +249,10 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           nameAcronym: driver.nameAcronym,
           abbreviation: driver.abbreviation,
           position: existingDriver?.position ?? 0,
+          broadcastName: driver.broadcastName,
           fullName: driver.fullName,
-          teamName: driver.teamName
+          teamName: driver.teamName,
+          teamColour: driver.teamColour
         });
       }
 

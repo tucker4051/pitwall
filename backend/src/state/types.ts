@@ -18,7 +18,9 @@ export type DriverState = {
   readonly abbreviation: string;
   readonly position: number;
   readonly fullName?: string;
+  readonly broadcastName?: string;
   readonly teamName?: string;
+  readonly teamColour?: string;
 };
 
 export type TimingDriverState = DriverState & {

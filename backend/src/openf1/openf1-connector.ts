@@ -1,6 +1,7 @@
 import mqtt, { type MqttClient } from "mqtt";
 
 import type { SourceMessage } from "../messages/source-message-types.js";
+import { createOpenF1DriverMetadataFetcher } from "./openf1-driver-metadata.js";
 import type { OpenF1Config } from "./openf1-config.js";
 import { mapOpenF1Message } from "./openf1-message-mapper.js";
 import { createOpenF1MessageOrderTracker } from "./openf1-message-order.js";
@@ -15,6 +16,8 @@ export type OpenF1ConnectorOptions = {
   readonly onSourceMessage?: (message: SourceMessage) => void;
 };
 
+const DRIVER_METADATA_RETRY_MS = 60_000;
+
 export function createOpenF1Connector(
   config: OpenF1Config,
   tokenManager: OpenF1TokenManager,
@@ -22,6 +25,10 @@ export function createOpenF1Connector(
 ): OpenF1Connector {
   let client: MqttClient | null = null;
   const messageOrderTracker = createOpenF1MessageOrderTracker();
+  const driverMetadataFetcher = createOpenF1DriverMetadataFetcher(config, tokenManager);
+  const completedDriverMetadataFetches = new Set<string>();
+  const inFlightDriverMetadataFetches = new Set<string>();
+  const failedDriverMetadataFetches = new Map<string, number>();
 
   return {
     async connect(): Promise<void> {
@@ -69,7 +76,8 @@ export function createOpenF1Connector(
           payloadBytes: payload.length,
           jsonParseSucceeded: metadata.jsonParseSucceeded,
           hasId: metadata.hasId,
-          hasKey: metadata.hasKey
+          hasKey: metadata.hasKey,
+          hasSessionKey: metadata.sessionKey !== undefined
         });
 
         if (!metadata.jsonParseSucceeded) {
@@ -85,6 +93,10 @@ export function createOpenF1Connector(
             lastProcessedId: orderResult.lastProcessedId
           });
           return;
+        }
+
+        if (metadata.sessionKey !== undefined) {
+          ensureDriverMetadataForSession(metadata.sessionKey);
         }
 
         const mappedMessage = mapOpenF1Message(topic, metadata.parsedPayload, new Date());
@@ -148,12 +160,62 @@ export function createOpenF1Connector(
       });
     }
   };
+
+  function ensureDriverMetadataForSession(sessionKey: string | number): void {
+    const sessionKeyId = String(sessionKey);
+
+    if (completedDriverMetadataFetches.has(sessionKeyId) || inFlightDriverMetadataFetches.has(sessionKeyId)) {
+      return;
+    }
+
+    const lastFailedAt = failedDriverMetadataFetches.get(sessionKeyId);
+
+    if (lastFailedAt && Date.now() - lastFailedAt < DRIVER_METADATA_RETRY_MS) {
+      return;
+    }
+
+    inFlightDriverMetadataFetches.add(sessionKeyId);
+    console.log("OpenF1 driver metadata fetch scheduled.", {
+      sessionKey: sessionKeyId
+    });
+
+    driverMetadataFetcher
+      .fetchDriversForSession(sessionKey)
+      .then((message) => {
+        inFlightDriverMetadataFetches.delete(sessionKeyId);
+        completedDriverMetadataFetches.add(sessionKeyId);
+        failedDriverMetadataFetches.delete(sessionKeyId);
+
+        console.log("OpenF1 driver metadata fetched.", {
+          sessionKey: sessionKeyId,
+          driverCount: message.payload.drivers.length
+        });
+
+        options.onSourceMessage?.(message);
+
+        console.log("OpenF1 driver metadata handed to dashboard pipeline.", {
+          sourceType: message.type,
+          sessionKey: sessionKeyId,
+          driverCount: message.payload.drivers.length
+        });
+      })
+      .catch((error: unknown) => {
+        inFlightDriverMetadataFetches.delete(sessionKeyId);
+        failedDriverMetadataFetches.set(sessionKeyId, Date.now());
+
+        console.error("OpenF1 driver metadata fetch failed.", {
+          sessionKey: sessionKeyId,
+          message: getSafeErrorMessage(error)
+        });
+      });
+  }
 }
 
 type MessageMetadata = {
   readonly jsonParseSucceeded: boolean;
   readonly hasId: boolean;
   readonly hasKey: boolean;
+  readonly sessionKey?: string | number;
   readonly parsedPayload: unknown;
 };
 
@@ -166,6 +228,7 @@ function parseMessageMetadata(payload: Buffer): MessageMetadata {
         jsonParseSucceeded: true,
         hasId: false,
         hasKey: false,
+        sessionKey: undefined,
         parsedPayload: value
       };
     }
@@ -174,6 +237,7 @@ function parseMessageMetadata(payload: Buffer): MessageMetadata {
       jsonParseSucceeded: true,
       hasId: "_id" in value,
       hasKey: "_key" in value,
+      sessionKey: readSessionKey(value),
       parsedPayload: value
     };
   } catch {
@@ -181,6 +245,7 @@ function parseMessageMetadata(payload: Buffer): MessageMetadata {
       jsonParseSucceeded: false,
       hasId: false,
       hasKey: false,
+      sessionKey: undefined,
       parsedPayload: null
     };
   }
@@ -199,6 +264,20 @@ async function refreshCredentialsForReconnect(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readSessionKey(payload: Record<string, unknown>): string | number | undefined {
+  const sessionKey = payload.session_key;
+
+  if (typeof sessionKey === "string" && sessionKey.length > 0) {
+    return sessionKey;
+  }
+
+  if (typeof sessionKey === "number" && Number.isFinite(sessionKey)) {
+    return sessionKey;
+  }
+
+  return undefined;
 }
 
 function getSafeErrorMessage(error: unknown): string {

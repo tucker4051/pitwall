@@ -3,6 +3,7 @@ export type SourceMessageMetadata = {
   readonly topic?: string;
   readonly openF1Id?: string | number;
   readonly openF1Key?: string;
+  readonly sessionKey?: string | number;
   readonly receivedAt?: string;
 };
 
@@ -205,7 +206,9 @@ export type OpenF1InternalDriver = {
   readonly nameAcronym?: string;
   readonly abbreviation: string;
   readonly fullName?: string;
+  readonly broadcastName?: string;
   readonly teamName?: string;
+  readonly teamColour?: string;
 };
 
 export type OpenF1InternalPosition = {

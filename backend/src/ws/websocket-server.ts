@@ -65,6 +65,8 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
       clients: getOpenClientCount(webSocketServer)
     });
 
+    sendInitialDashboardSnapshot(webSocket, currentRaceState);
+
     webSocket.on("close", () => {
       console.log("WebSocket client disconnected.", {
         clients: getOpenClientCount(webSocketServer)
@@ -134,6 +136,38 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
   return Object.assign(webSocketServer, {
     processSourceMessage
   });
+}
+
+function sendInitialDashboardSnapshot(
+  webSocket: WebSocket,
+  currentRaceState: Parameters<typeof createConnectionDashboardMessage>[0]
+): void {
+  const sentAt = new Date().toISOString();
+  const messages = [];
+
+  if (currentRaceState.session.name || currentRaceState.session.type) {
+    messages.push(createDashboardMessageFromState(currentRaceState, "openf1:session", sentAt));
+  }
+
+  if (currentRaceState.drivers.size > 0) {
+    messages.push(createDashboardMessageFromState(currentRaceState, "openf1:drivers", sentAt));
+  }
+
+  if (currentRaceState.timing.drivers.length > 0) {
+    messages.push(createDashboardMessageFromState(currentRaceState, "openf1:timing", sentAt));
+  }
+
+  for (const message of messages) {
+    sendJson(webSocket, message);
+  }
+
+  if (messages.length > 0) {
+    console.log("Initial dashboard snapshot sent.", {
+      messageTypes: messages.map((message) => message.type),
+      driverCount: currentRaceState.drivers.size,
+      timingRowCount: currentRaceState.timing.drivers.length
+    });
+  }
 }
 
 function startMockMessageStream(processSourceMessage: (sourceMessage: SourceMessage) => void): void {

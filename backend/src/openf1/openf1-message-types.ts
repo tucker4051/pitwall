@@ -16,13 +16,16 @@ export type OpenF1MappedTopic =
 export type OpenF1MessageMetadata = {
   readonly _id?: string | number;
   readonly _key?: string;
+  readonly session_key?: string | number;
 };
 
 export type OpenF1DriverMessage = OpenF1MessageMetadata & {
   readonly driver_number: number;
   readonly name_acronym: string;
+  readonly broadcast_name?: string;
   readonly full_name?: string;
   readonly team_name?: string;
+  readonly team_colour?: string;
 };
 
 export type OpenF1SessionMessage = OpenF1MessageMetadata & {

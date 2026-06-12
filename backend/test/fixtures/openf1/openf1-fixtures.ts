@@ -6,6 +6,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_000,
       _key: "session-latest",
+      session_key: 9999,
       session_name: "Mock Grand Prix",
       session_type: "Race"
     }
@@ -15,10 +16,13 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_001,
       _key: "driver-1",
+      session_key: 9999,
       driver_number: 1,
       name_acronym: "VER",
+      broadcast_name: "M VERSTAPPEN",
       full_name: "Max Verstappen",
-      team_name: "Red Bull Racing"
+      team_name: "Red Bull Racing",
+      team_colour: "3671C6"
     }
   },
   {
@@ -26,10 +30,13 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_002,
       _key: "driver-4",
+      session_key: 9999,
       driver_number: 4,
       name_acronym: "NOR",
+      broadcast_name: "L NORRIS",
       full_name: "Lando Norris",
-      team_name: "McLaren"
+      team_name: "McLaren",
+      team_colour: "FF8000"
     }
   },
   {
@@ -37,6 +44,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_003,
       _key: "position-1",
+      session_key: 9999,
       driver_number: 1,
       position: 1
     }
@@ -46,6 +54,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_004,
       _key: "position-4",
+      session_key: 9999,
       driver_number: 4,
       position: 2
     }
@@ -55,6 +64,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_004_1,
       _key: "lap-1-14",
+      session_key: 9999,
       driver_number: 1,
       lap_number: 14,
       lap_duration: 84.321
@@ -65,6 +75,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_004_2,
       _key: "interval-4",
+      session_key: 9999,
       driver_number: 4,
       gap_to_leader: 1.234,
       interval: 1.234
@@ -75,6 +86,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_005,
       _key: "race-control-1",
+      session_key: 9999,
       category: "Flag",
       flag: "GREEN",
       message: "GREEN LIGHT - PIT EXIT OPEN"
@@ -85,6 +97,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_006,
       _key: "weather-latest",
+      session_key: 9999,
       air_temperature: 22.4,
       track_temperature: 35.1,
       humidity: 61,
@@ -98,6 +111,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_007,
       _key: "location-1",
+      session_key: 9999,
       driver_number: 1,
       x: 125.4,
       y: -42.2,
@@ -109,6 +123,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_008,
       _key: "car-data-1",
+      session_key: 9999,
       driver_number: 1,
       speed: 287,
       throttle: 92,
@@ -122,6 +137,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_009,
       _key: "stint-1-2",
+      session_key: 9999,
       driver_number: 1,
       compound: "MEDIUM",
       stint_number: 2,
@@ -133,6 +149,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
     payload: {
       _id: 10_010,
       _key: "pit-1-14",
+      session_key: 9999,
       driver_number: 1,
       lap_number: 14,
       pit_duration: 2.71

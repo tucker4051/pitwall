@@ -23,7 +23,9 @@ export type TimingDriver = {
   readonly abbreviation: string;
   readonly position: number;
   readonly fullName?: string;
+  readonly broadcastName?: string;
   readonly teamName?: string;
+  readonly teamColour?: string;
   readonly gapToLeader: string;
   readonly intervalToAhead?: string;
   readonly lastLapTime?: string;

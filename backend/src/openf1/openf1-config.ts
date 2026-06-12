@@ -5,6 +5,7 @@ export type OpenF1Config = {
   readonly username: string;
   readonly password: string;
   readonly tokenUrl: string;
+  readonly restBaseUrl: string;
   readonly mqtt: {
     readonly host: string;
     readonly port: number;
@@ -23,6 +24,7 @@ export function createOpenF1Config(config: AppConfig["openF1"]): OpenF1Config {
     username: config.username,
     password: config.password,
     tokenUrl: config.tokenUrl,
+    restBaseUrl: config.restBaseUrl,
     mqtt: {
       host: config.mqttHost,
       port: config.mqttPort,

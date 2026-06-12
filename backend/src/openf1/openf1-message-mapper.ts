@@ -108,8 +108,10 @@ function mapDriverMessage(
             driverNumber: payload.driver_number,
             nameAcronym: payload.name_acronym,
             abbreviation: payload.name_acronym,
+            broadcastName: readOptionalString(payload.broadcast_name),
             fullName: readOptionalString(payload.full_name),
-            teamName: readOptionalString(payload.team_name)
+            teamName: readOptionalString(payload.team_name),
+            teamColour: readOptionalString(payload.team_colour)
           }
         ]
       }
@@ -458,6 +460,7 @@ function createMetadata<TTopic extends OpenF1MappedTopic>(
     topic,
     openF1Id: readOpenF1Id(payload),
     openF1Key: readOptionalString(payload._key),
+    sessionKey: readSessionKey(payload),
     receivedAt
   };
 }
@@ -475,6 +478,10 @@ function readMessageIdentity(payload: Record<string, unknown>): string | undefin
 
   const id = readOpenF1Id(payload);
   return id === undefined ? undefined : String(id);
+}
+
+function readSessionKey(payload: Record<string, unknown>): string | number | undefined {
+  return isString(payload.session_key) || isNumber(payload.session_key) ? payload.session_key : undefined;
 }
 
 function readOptionalString(value: unknown): string | undefined {
