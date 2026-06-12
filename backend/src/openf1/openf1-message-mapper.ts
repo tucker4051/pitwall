@@ -181,6 +181,9 @@ function mapLapMessage(
         drivers: [
           {
             driverNumber: payload.driver_number,
+            lapDuration: readNumber(payload.lap_duration),
+            lapNumber: payload.lap_number,
+            lapUpdatedAt: readOptionalString(payload.date_start) ?? recordedAt,
             lastLapTime: formatDuration(payload.lap_duration)
           }
         ]
@@ -215,7 +218,8 @@ function mapIntervalMessage(
           {
             driverNumber: payload.driver_number,
             gapToLeader: formatInterval(payload.gap_to_leader),
-            intervalToAhead: formatInterval(payload.interval)
+            intervalToAhead: formatInterval(payload.interval),
+            intervalUpdatedAt: readOptionalString(payload.date) ?? recordedAt
           }
         ]
       }
@@ -528,12 +532,26 @@ function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | undefin
   return undefined;
 }
 
-function normalizeSessionType(value: unknown): "Race" | "Qualifying" | "Practice" | undefined {
+function normalizeSessionType(
+  value: unknown
+): "Race" | "Qualifying" | "Practice" | "Sprint" | "Sprint Qualifying" | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
   const normalized = value.toLowerCase();
+
+  if (normalized.includes("sprint shootout") || normalized.includes("sprint qualifying")) {
+    return "Sprint Qualifying";
+  }
+
+  if (normalized.includes("sprint") && normalized.includes("race")) {
+    return "Sprint";
+  }
+
+  if (normalized === "sprint") {
+    return "Sprint";
+  }
 
   if (normalized.includes("race")) {
     return "Race";
@@ -551,7 +569,7 @@ function normalizeSessionType(value: unknown): "Race" | "Qualifying" | "Practice
 }
 
 function formatDuration(value: unknown): string | undefined {
-  if (!isNumber(value)) {
+  if (!isNumber(value) || value <= 0) {
     return undefined;
   }
 

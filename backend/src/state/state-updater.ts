@@ -352,8 +352,14 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
             ...driver,
             gapToLeader: timingDriver.gapToLeader,
             intervalToAhead: timingDriver.intervalToAhead,
+            intervalUpdatedAt: timingDriver.intervalUpdatedAt,
             lastLapTime: timingDriver.lastLapTime,
-            bestLapTime: timingDriver.bestLapTime
+            bestLapTime: timingDriver.bestLapTime,
+            bestLapDuration: timingDriver.bestLapDuration,
+            latestLapDuration: timingDriver.latestLapDuration,
+            latestLapNumber: timingDriver.latestLapNumber,
+            latestLapUpdatedAt: timingDriver.latestLapUpdatedAt,
+            latestInterval: timingDriver.latestInterval
           };
         });
 
@@ -456,6 +462,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         const existingDriver = drivers.get(key);
         const existingTimingDriver = findTimingDriver(timingDrivers, driverUpdate.driverNumber);
         const abbreviation = existingDriver?.abbreviation ?? existingTimingDriver?.abbreviation ?? String(driverUpdate.driverNumber);
+        const lapMerge = mergeLapTiming(existingTimingDriver, driverUpdate, message.recordedAt, message.metadata.sessionKey);
+        const intervalMerge = mergeIntervalTiming(existingTimingDriver, driverUpdate, message.recordedAt, message.metadata.sessionKey);
         const nextTimingDriver: TimingDriverState = {
           ...existingTimingDriver,
           ...existingDriver,
@@ -463,9 +471,15 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           abbreviation,
           position: driverUpdate.position ?? existingDriver?.position ?? existingTimingDriver?.position ?? 0,
           gapToLeader: driverUpdate.gapToLeader ?? existingTimingDriver?.gapToLeader ?? "",
-          intervalToAhead: driverUpdate.intervalToAhead ?? existingTimingDriver?.intervalToAhead,
+          intervalToAhead: intervalMerge.intervalToAhead,
+          intervalUpdatedAt: intervalMerge.intervalUpdatedAt,
+          latestInterval: intervalMerge.latestInterval,
           lastLapTime: driverUpdate.lastLapTime ?? existingTimingDriver?.lastLapTime,
-          bestLapTime: driverUpdate.bestLapTime ?? existingTimingDriver?.bestLapTime
+          bestLapTime: lapMerge.bestLapTime ?? driverUpdate.bestLapTime ?? existingTimingDriver?.bestLapTime,
+          bestLapDuration: lapMerge.bestLapDuration,
+          latestLapDuration: lapMerge.latestLapDuration,
+          latestLapNumber: lapMerge.latestLapNumber,
+          latestLapUpdatedAt: lapMerge.latestLapUpdatedAt
         };
 
         drivers.set(key, {
@@ -798,6 +812,140 @@ function shouldApplyPositionUpdate(
   }
 
   return incomingMs >= existingMs;
+}
+
+function mergeLapTiming(
+  existingTimingDriver: TimingDriverState | undefined,
+  driverUpdate: { readonly driverNumber: number; readonly lapDuration?: number; readonly lapNumber?: number; readonly lapUpdatedAt?: string },
+  recordedAt: string,
+  sessionKey: string | number | undefined
+): Pick<TimingDriverState, "bestLapDuration" | "bestLapTime" | "latestLapDuration" | "latestLapNumber" | "latestLapUpdatedAt"> {
+  const existingBestLapDuration = existingTimingDriver?.bestLapDuration;
+
+  if (driverUpdate.lapDuration === undefined) {
+    return {
+      bestLapDuration: existingBestLapDuration,
+      bestLapTime: existingTimingDriver?.bestLapTime,
+      latestLapDuration: existingTimingDriver?.latestLapDuration,
+      latestLapNumber: existingTimingDriver?.latestLapNumber,
+      latestLapUpdatedAt: existingTimingDriver?.latestLapUpdatedAt
+    };
+  }
+
+  if (!isValidLapDuration(driverUpdate.lapDuration)) {
+    console.log("OpenF1 lap update dropped because lap_duration is invalid.", {
+      driverNumber: driverUpdate.driverNumber,
+      sessionKey,
+      lapNumber: driverUpdate.lapNumber
+    });
+
+    return {
+      bestLapDuration: existingBestLapDuration,
+      bestLapTime: existingTimingDriver?.bestLapTime,
+      latestLapDuration: existingTimingDriver?.latestLapDuration,
+      latestLapNumber: existingTimingDriver?.latestLapNumber,
+      latestLapUpdatedAt: existingTimingDriver?.latestLapUpdatedAt
+    };
+  }
+
+  const updatedAt = driverUpdate.lapUpdatedAt ?? recordedAt;
+  const bestLapUpdated =
+    existingBestLapDuration === undefined || driverUpdate.lapDuration < existingBestLapDuration;
+
+  console.log("OpenF1 lap update applied.", {
+    driverNumber: driverUpdate.driverNumber,
+    sessionKey,
+    lapNumber: driverUpdate.lapNumber,
+    bestLapUpdated
+  });
+
+  if (!bestLapUpdated) {
+    console.log("OpenF1 best lap retained because new lap is slower.", {
+      driverNumber: driverUpdate.driverNumber,
+      sessionKey,
+      lapNumber: driverUpdate.lapNumber
+    });
+  }
+
+  return {
+    bestLapDuration: bestLapUpdated ? driverUpdate.lapDuration : existingBestLapDuration,
+    bestLapTime: bestLapUpdated ? formatLapDuration(driverUpdate.lapDuration) : existingTimingDriver?.bestLapTime,
+    latestLapDuration: driverUpdate.lapDuration,
+    latestLapNumber: driverUpdate.lapNumber,
+    latestLapUpdatedAt: updatedAt
+  };
+}
+
+function mergeIntervalTiming(
+  existingTimingDriver: TimingDriverState | undefined,
+  driverUpdate: { readonly driverNumber: number; readonly intervalToAhead?: string; readonly intervalUpdatedAt?: string },
+  recordedAt: string,
+  sessionKey: string | number | undefined
+): Pick<TimingDriverState, "intervalToAhead" | "intervalUpdatedAt" | "latestInterval"> {
+  if (driverUpdate.intervalToAhead === undefined) {
+    return {
+      intervalToAhead: existingTimingDriver?.intervalToAhead,
+      intervalUpdatedAt: existingTimingDriver?.intervalUpdatedAt,
+      latestInterval: existingTimingDriver?.latestInterval
+    };
+  }
+
+  const updatedAt = driverUpdate.intervalUpdatedAt ?? recordedAt;
+
+  if (!shouldApplyTimestampedUpdate(existingTimingDriver?.intervalUpdatedAt, updatedAt)) {
+    console.log("OpenF1 interval update dropped because an equal or newer interval exists.", {
+      driverNumber: driverUpdate.driverNumber,
+      sessionKey,
+      updatedAt
+    });
+
+    return {
+      intervalToAhead: existingTimingDriver?.intervalToAhead,
+      intervalUpdatedAt: existingTimingDriver?.intervalUpdatedAt,
+      latestInterval: existingTimingDriver?.latestInterval
+    };
+  }
+
+  console.log("OpenF1 interval update applied.", {
+    driverNumber: driverUpdate.driverNumber,
+    sessionKey,
+    updatedAt
+  });
+
+  return {
+    intervalToAhead: driverUpdate.intervalToAhead,
+    intervalUpdatedAt: updatedAt,
+    latestInterval: driverUpdate.intervalToAhead
+  };
+}
+
+function shouldApplyTimestampedUpdate(existingUpdatedAt: string | undefined, incomingUpdatedAt: string): boolean {
+  if (!existingUpdatedAt) {
+    return true;
+  }
+
+  const existingMs = Date.parse(existingUpdatedAt);
+  const incomingMs = Date.parse(incomingUpdatedAt);
+
+  if (Number.isNaN(existingMs) || Number.isNaN(incomingMs)) {
+    return true;
+  }
+
+  return incomingMs >= existingMs;
+}
+
+function isValidLapDuration(value: number): boolean {
+  return Number.isFinite(value) && value > 0;
+}
+
+function formatLapDuration(seconds: number): string {
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds - minutes * 60;
+    return `${minutes}:${remainingSeconds.toFixed(3).padStart(6, "0")}`;
+  }
+
+  return seconds.toFixed(3);
 }
 
 function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonly TimingDriverState[] {

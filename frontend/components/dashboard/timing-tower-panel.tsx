@@ -19,9 +19,10 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
         <span className="font-mono text-[11px] text-slate-500">{visibleDrivers.length || "--"} cars</span>
       </div>
 
-      <div className="grid grid-cols-[34px_1fr] border-b border-slate-800 bg-[#090d13] px-2 py-1.5 text-[10px] font-bold uppercase text-slate-500">
+      <div className="grid grid-cols-[34px_1fr_72px] border-b border-slate-800 bg-[#090d13] px-2 py-1.5 text-[10px] font-bold uppercase text-slate-500">
         <span>Pos</span>
         <span>Drv</span>
+        <span className="text-right">{rowsResult.timingColumnHeader}</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
@@ -37,7 +38,7 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
               key={driver.rowKey}
               type="button"
               onClick={() => onSelectDriver(driver)}
-              className={`grid h-[27px] w-full grid-cols-[34px_1fr] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
+              className={`grid h-[27px] w-full grid-cols-[34px_1fr_72px] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
                 selected ? "bg-cyan-400/10 text-cyan-100" : "bg-transparent text-slate-300 hover:bg-slate-900"
               }`}
             >
@@ -45,6 +46,9 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
               <span className="flex items-center gap-2 font-black">
                 <span className="h-4 w-1 border" style={getTeamStripStyle(identity.teamProfile)} />
                 {driver.displayLabel}
+              </span>
+              <span className="text-right font-mono text-[11px] tabular-nums text-slate-300">
+                {driver.displayTimingValue}
               </span>
             </button>
           );

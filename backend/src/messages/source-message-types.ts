@@ -81,7 +81,7 @@ export type OpenF1SourceMessage =
         readonly meetingKey?: number;
         readonly sessionKey?: number;
         readonly sessionName: string;
-        readonly sessionType: "Race" | "Qualifying" | "Practice";
+        readonly sessionType: "Race" | "Qualifying" | "Practice" | "Sprint" | "Sprint Qualifying";
         readonly dateStart?: string;
         readonly dateEnd?: string;
       };
@@ -169,6 +169,8 @@ export type MockTimingDriver = {
   readonly position: number;
   readonly abbreviation: string;
   readonly gapToLeader: string;
+  readonly intervalToAhead?: string;
+  readonly latestInterval?: string;
 };
 
 export type MockRaceControlMessage = {
@@ -252,6 +254,10 @@ export type OpenF1InternalTimingDriver = {
   readonly position?: number;
   readonly gapToLeader?: string;
   readonly intervalToAhead?: string;
+  readonly intervalUpdatedAt?: string;
+  readonly lapDuration?: number;
+  readonly lapNumber?: number;
+  readonly lapUpdatedAt?: string;
   readonly lastLapTime?: string;
   readonly bestLapTime?: string;
 };

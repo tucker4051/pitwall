@@ -55,6 +55,12 @@ export type TimingDriver = {
   readonly intervalToAhead?: string;
   readonly lastLapTime?: string;
   readonly bestLapTime?: string;
+  readonly bestLapDuration?: number;
+  readonly latestLapDuration?: number;
+  readonly latestLapNumber?: number;
+  readonly latestLapUpdatedAt?: string;
+  readonly latestInterval?: string;
+  readonly intervalUpdatedAt?: string;
 };
 
 export type TimingState = {

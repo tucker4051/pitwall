@@ -11,7 +11,7 @@ export type SessionState = {
   readonly meetingKey: number | null;
   readonly sessionKey: number | null;
   readonly name: string | null;
-  readonly type: "Race" | "Qualifying" | "Practice" | null;
+  readonly type: "Race" | "Qualifying" | "Practice" | "Sprint" | "Sprint Qualifying" | null;
   readonly dateStart: string | null;
   readonly dateEnd: string | null;
   readonly driverMetadataStatus: "idle" | "loading" | "ready" | "error";
@@ -53,6 +53,12 @@ export type TimingDriverState = DriverState & {
   readonly intervalToAhead?: string;
   readonly lastLapTime?: string;
   readonly bestLapTime?: string;
+  readonly bestLapDuration?: number;
+  readonly latestLapDuration?: number;
+  readonly latestLapNumber?: number;
+  readonly latestLapUpdatedAt?: string;
+  readonly latestInterval?: string;
+  readonly intervalUpdatedAt?: string;
 };
 
 export type TimingState = {

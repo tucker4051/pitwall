@@ -90,7 +90,7 @@ function validateOpenF1SessionMessage(message: Record<string, unknown>): SourceM
     !optionalNumber(payload.sessionKey) ||
     !optionalString(payload.dateStart) ||
     !optionalString(payload.dateEnd) ||
-    (payload.sessionType !== "Race" && payload.sessionType !== "Qualifying" && payload.sessionType !== "Practice")
+    !isOpenF1SessionType(payload.sessionType)
   ) {
     return invalid("openf1:session payload must include sessionName and supported sessionType");
   }
@@ -120,7 +120,9 @@ function validateTimingMessage(message: Record<string, unknown>): SourceMessageV
       isRecord(driver) &&
       isNumber(driver.position) &&
       isString(driver.abbreviation) &&
-      isString(driver.gapToLeader)
+      isString(driver.gapToLeader) &&
+      optionalString(driver.intervalToAhead) &&
+      optionalString(driver.latestInterval)
   );
 
   return driversAreValid ? valid(message as SourceMessage) : invalid("mock:timing drivers are malformed");
@@ -277,6 +279,10 @@ function validateOpenF1TimingMessage(message: Record<string, unknown>): SourceMe
       optionalNumber(driver.position) &&
       optionalString(driver.gapToLeader) &&
       optionalString(driver.intervalToAhead) &&
+      optionalString(driver.intervalUpdatedAt) &&
+      optionalNumber(driver.lapDuration) &&
+      optionalNumber(driver.lapNumber) &&
+      optionalString(driver.lapUpdatedAt) &&
       optionalString(driver.lastLapTime) &&
       optionalString(driver.bestLapTime)
   );
@@ -336,6 +342,16 @@ function optionalString(value: unknown): boolean {
 
 function optionalNumber(value: unknown): boolean {
   return value === null || value === undefined || isNumber(value);
+}
+
+function isOpenF1SessionType(value: unknown): boolean {
+  return (
+    value === "Race" ||
+    value === "Qualifying" ||
+    value === "Practice" ||
+    value === "Sprint" ||
+    value === "Sprint Qualifying"
+  );
 }
 
 function isNumber(value: unknown): value is number {

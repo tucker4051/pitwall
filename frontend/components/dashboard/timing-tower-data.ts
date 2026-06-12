@@ -4,11 +4,13 @@ export type TimingTowerRow = TimingDriver & {
   readonly rowKey: string;
   readonly displayPosition: string;
   readonly displayLabel: string;
+  readonly displayTimingValue: string;
   readonly hasDriverMetadata: boolean;
 };
 
 export type TimingTowerRowsResult = {
   readonly rows: readonly TimingTowerRow[];
+  readonly timingColumnHeader: "BEST" | "INT" | "TIME";
   readonly emptyState:
     | "no-active-meeting"
     | "no-live-session"
@@ -59,18 +61,23 @@ export function buildTimingTowerRows({
   drivers,
   timingDrivers
 }: BuildTimingTowerRowsInput): TimingTowerRowsResult {
+  const timingDisplayMode = getTimingDisplayMode(session.type ?? connection.sessionType);
+  const timingColumnHeader = getTimingColumnHeader(timingDisplayMode);
+
   if (dataMode === "mock") {
     return {
-      rows: mergeDriverRows(mockTimingTowerDrivers, drivers, timingDrivers),
+      rows: mergeDriverRows(mockTimingTowerDrivers, drivers, timingDrivers, timingDisplayMode),
+      timingColumnHeader,
       emptyState: null
     };
   }
 
-  const rows = mergeDriverRows([], drivers, timingDrivers);
+  const rows = mergeDriverRows([], drivers, timingDrivers, timingDisplayMode);
 
   if (rows.length > 0) {
     return {
       rows,
+      timingColumnHeader,
       emptyState: null
     };
   }
@@ -78,6 +85,7 @@ export function buildTimingTowerRows({
   if (!meeting.meetingKey) {
     return {
       rows: [],
+      timingColumnHeader,
       emptyState: "no-active-meeting"
     };
   }
@@ -85,6 +93,7 @@ export function buildTimingTowerRows({
   if (!session.sessionKey && !session.name && !session.type && !connection.sessionName && !connection.sessionType) {
     return {
       rows: [],
+      timingColumnHeader,
       emptyState: "no-live-session"
     };
   }
@@ -92,12 +101,14 @@ export function buildTimingTowerRows({
   if (session.driverMetadataStatus === "loading") {
     return {
       rows: [],
+      timingColumnHeader,
       emptyState: "loading-session-drivers"
     };
   }
 
   return {
     rows: [],
+    timingColumnHeader,
     emptyState: "waiting-for-driver-metadata"
   };
 }
@@ -105,7 +116,8 @@ export function buildTimingTowerRows({
 function mergeDriverRows(
   baseDrivers: readonly TimingDriver[],
   metadataDrivers: readonly TimingDriver[],
-  timingDrivers: readonly TimingDriver[]
+  timingDrivers: readonly TimingDriver[],
+  timingDisplayMode: TimingDisplayMode
 ): readonly TimingTowerRow[] {
   const rowsByIdentity = new Map<string, TimingDriver>();
 
@@ -123,7 +135,7 @@ function mergeDriverRows(
   }
 
   return Array.from(rowsByIdentity.values())
-    .map(toTimingTowerRow)
+    .map((driver) => toTimingTowerRow(driver, timingDisplayMode))
     .sort(compareTimingTowerRows);
 }
 
@@ -143,8 +155,14 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
     teamColour: nextDriver.teamColour ?? existingDriver.teamColour,
     gapToLeader: nextDriver.gapToLeader || existingDriver.gapToLeader || "--",
     intervalToAhead: nextDriver.intervalToAhead ?? existingDriver.intervalToAhead,
+    intervalUpdatedAt: nextDriver.intervalUpdatedAt ?? existingDriver.intervalUpdatedAt,
+    latestInterval: nextDriver.latestInterval ?? existingDriver.latestInterval,
     lastLapTime: nextDriver.lastLapTime ?? existingDriver.lastLapTime,
-    bestLapTime: nextDriver.bestLapTime ?? existingDriver.bestLapTime
+    bestLapTime: nextDriver.bestLapTime ?? existingDriver.bestLapTime,
+    bestLapDuration: nextDriver.bestLapDuration ?? existingDriver.bestLapDuration,
+    latestLapDuration: nextDriver.latestLapDuration ?? existingDriver.latestLapDuration,
+    latestLapNumber: nextDriver.latestLapNumber ?? existingDriver.latestLapNumber,
+    latestLapUpdatedAt: nextDriver.latestLapUpdatedAt ?? existingDriver.latestLapUpdatedAt
   });
 }
 
@@ -160,12 +178,13 @@ function normaliseDriver(driver: TimingDriver): TimingDriver {
   };
 }
 
-function toTimingTowerRow(driver: TimingDriver): TimingTowerRow {
+function toTimingTowerRow(driver: TimingDriver, timingDisplayMode: TimingDisplayMode): TimingTowerRow {
   return {
     ...driver,
     rowKey: getDriverRowKey(driver),
     displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position).padStart(2, "0"),
     displayLabel: getTimingTowerDisplayLabel(driver),
+    displayTimingValue: getTimingDisplayValue(driver, timingDisplayMode),
     hasDriverMetadata: Boolean(getAcronym(driver))
   };
 }
@@ -268,4 +287,66 @@ function findExistingDriverRowKey(
   }
 
   return undefined;
+}
+
+type TimingDisplayMode = "best-lap" | "interval" | "unknown";
+
+function getTimingDisplayMode(sessionType: string | null | undefined): TimingDisplayMode {
+  if (!sessionType) {
+    return "unknown";
+  }
+
+  const normalized = sessionType.toLowerCase();
+
+  if (
+    normalized.includes("practice") ||
+    normalized.includes("qualifying") ||
+    normalized.includes("shootout")
+  ) {
+    return "best-lap";
+  }
+
+  if (normalized.includes("race") || normalized === "sprint") {
+    return "interval";
+  }
+
+  return "unknown";
+}
+
+function getTimingColumnHeader(timingDisplayMode: TimingDisplayMode): "BEST" | "INT" | "TIME" {
+  if (timingDisplayMode === "best-lap") {
+    return "BEST";
+  }
+
+  if (timingDisplayMode === "interval") {
+    return "INT";
+  }
+
+  return "TIME";
+}
+
+function getTimingDisplayValue(driver: TimingDriver, timingDisplayMode: TimingDisplayMode): string {
+  if (timingDisplayMode === "best-lap") {
+    return driver.bestLapTime ?? formatLapDuration(driver.bestLapDuration);
+  }
+
+  if (timingDisplayMode === "interval") {
+    return driver.latestInterval ?? driver.intervalToAhead ?? "--";
+  }
+
+  return "--";
+}
+
+function formatLapDuration(seconds: number | undefined): string {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
+    return "--";
+  }
+
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds - minutes * 60;
+    return `${minutes}:${remainingSeconds.toFixed(3).padStart(6, "0")}`;
+  }
+
+  return seconds.toFixed(3);
 }

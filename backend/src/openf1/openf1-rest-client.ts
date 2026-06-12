@@ -6,7 +6,7 @@ export type OpenF1InternalSession = {
   readonly meetingKey?: number;
   readonly sessionKey: number;
   readonly sessionName: string;
-  readonly sessionType: "Race" | "Qualifying" | "Practice";
+  readonly sessionType: "Race" | "Qualifying" | "Practice" | "Sprint" | "Sprint Qualifying";
   readonly dateStart?: string;
   readonly dateEnd?: string;
 };
@@ -160,12 +160,26 @@ function createOpenF1RestUrl(
   return url.toString();
 }
 
-function normalizeSessionType(value: unknown): "Race" | "Qualifying" | "Practice" | undefined {
+function normalizeSessionType(
+  value: unknown
+): "Race" | "Qualifying" | "Practice" | "Sprint" | "Sprint Qualifying" | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
   const normalized = value.toLowerCase();
+
+  if (normalized.includes("sprint shootout") || normalized.includes("sprint qualifying")) {
+    return "Sprint Qualifying";
+  }
+
+  if (normalized.includes("sprint") && normalized.includes("race")) {
+    return "Sprint";
+  }
+
+  if (normalized === "sprint") {
+    return "Sprint";
+  }
 
   if (normalized.includes("race")) {
     return "Race";

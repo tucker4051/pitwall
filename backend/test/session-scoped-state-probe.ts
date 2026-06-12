@@ -14,6 +14,8 @@ state = applyMessages(state, [
     { driverNumber: 1, nameAcronym: "VER", fullName: "Max Verstappen", teamName: "Red Bull Racing" },
     { driverNumber: 97, nameAcronym: "RES", fullName: "Reserve Driver", teamName: "McLaren" }
   ]),
+  createLapMessage(sessionA, 97, 1, 75.123, "2026-06-12T12:00:10.000Z"),
+  createIntervalMessage(sessionA, 97, "+5.000", "2026-06-12T12:00:20.000Z"),
   createPositionMessage(sessionA, 1, 1),
   createPositionMessage(sessionA, 97, 2)
 ]);
@@ -43,7 +45,14 @@ state = applyMessages(state, [
   createPositionMessage(sessionA, 97, 1),
   createPositionMessage(sessionB, 4, 2, "2026-06-12T12:01:00.000Z"),
   createPositionMessage(sessionB, 4, 3, "2026-06-12T12:02:00.000Z"),
-  createPositionMessage(sessionB, 4, 9, "2026-06-12T12:01:30.000Z")
+  createPositionMessage(sessionB, 4, 9, "2026-06-12T12:01:30.000Z"),
+  createLapMessage(sessionB, 4, 1, 73.5, "2026-06-12T12:03:00.000Z"),
+  createLapMessage(sessionB, 4, 2, 74.1, "2026-06-12T12:04:00.000Z"),
+  createLapMessage(sessionB, 4, 3, 0, "2026-06-12T12:05:00.000Z"),
+  createLapMessage(sessionB, 4, 4, 72.9, "2026-06-12T12:06:00.000Z"),
+  createIntervalMessage(sessionB, 4, "+2.000", "2026-06-12T12:07:00.000Z"),
+  createIntervalMessage(sessionB, 4, "+3.000", "2026-06-12T12:08:00.000Z"),
+  createIntervalMessage(sessionB, 4, "+9.000", "2026-06-12T12:07:30.000Z")
 ]);
 
 if (state.drivers.has("97")) {
@@ -78,6 +87,18 @@ if (driverFourUpdatedAt !== "2026-06-12T12:02:00.000Z") {
   throw new Error("Older position update replaced a newer driver 4 position.");
 }
 
+if (!driverFour || driverFour.bestLapDuration !== 72.9 || driverFour.bestLapTime !== "1:12.900") {
+  throw new Error("Best lap duration was not retained as the lowest valid lap_duration.");
+}
+
+if (driverFour.latestLapDuration !== 72.9 || driverFour.latestLapNumber !== 4) {
+  throw new Error("Latest valid lap data was not stored for future use.");
+}
+
+if (driverFour.latestInterval !== "+3.000" || driverFour.intervalUpdatedAt !== "2026-06-12T12:08:00.000Z") {
+  throw new Error("Latest interval did not retain the newest interval update.");
+}
+
 const driverFourDashboard = driversMessage.payload.drivers.find((driver) => driver.driverNumber === 4);
 const driverFourDashboardPosition = driverFourDashboard?.position;
 
@@ -99,6 +120,8 @@ console.log(
     driverCount: state.drivers.size,
     timingRowCount: state.timing.drivers.length,
     latestDriverFourPosition: driverFourPosition,
+    bestLapDuration: driverFour.bestLapDuration,
+    latestInterval: driverFour.latestInterval,
     previousReservePresent: state.drivers.has("97")
   })
 );
@@ -195,6 +218,66 @@ function createPositionMessage(
           driverNumber,
           position,
           updatedAt
+        }
+      ]
+    }
+  };
+}
+
+function createLapMessage(
+  sessionKey: number,
+  driverNumber: number,
+  lapNumber: number,
+  lapDuration: number,
+  updatedAt: string
+): SourceMessage {
+  return {
+    type: "openf1:timing",
+    recordedAt,
+    metadata: {
+      source: "openf1",
+      topic: "v1/laps",
+      meetingKey: 1000,
+      sessionKey,
+      receivedAt: recordedAt
+    },
+    payload: {
+      lap: lapNumber,
+      drivers: [
+        {
+          driverNumber,
+          lapDuration,
+          lapNumber,
+          lapUpdatedAt: updatedAt
+        }
+      ]
+    }
+  };
+}
+
+function createIntervalMessage(
+  sessionKey: number,
+  driverNumber: number,
+  interval: string,
+  updatedAt: string
+): SourceMessage {
+  return {
+    type: "openf1:timing",
+    recordedAt,
+    metadata: {
+      source: "openf1",
+      topic: "v1/intervals",
+      meetingKey: 1000,
+      sessionKey,
+      receivedAt: recordedAt
+    },
+    payload: {
+      lap: null,
+      drivers: [
+        {
+          driverNumber,
+          intervalToAhead: interval,
+          intervalUpdatedAt: updatedAt
         }
       ]
     }

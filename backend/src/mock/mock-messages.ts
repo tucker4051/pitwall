@@ -9,9 +9,9 @@ import type {
 } from "../messages/source-message-types.js";
 
 const MOCK_TIMING_DRIVERS: readonly MockTimingDriver[] = [
-  { position: 1, abbreviation: "VER", gapToLeader: "LEADER" },
-  { position: 2, abbreviation: "NOR", gapToLeader: "+1.234" },
-  { position: 3, abbreviation: "LEC", gapToLeader: "+2.468" }
+  { position: 1, abbreviation: "VER", gapToLeader: "LEADER", intervalToAhead: "--", latestInterval: "--" },
+  { position: 2, abbreviation: "NOR", gapToLeader: "+1.234", intervalToAhead: "+1.234", latestInterval: "+1.234" },
+  { position: 3, abbreviation: "LEC", gapToLeader: "+2.468", intervalToAhead: "+1.234", latestInterval: "+1.234" }
 ];
 
 const MOCK_LOCATION_BASES: readonly MockTrackPosition[] = [

@@ -42,13 +42,15 @@ export type OpenF1PositionMessage = OpenF1MessageMetadata & {
 export type OpenF1LapMessage = OpenF1MessageMetadata & {
   readonly driver_number: number;
   readonly lap_number: number;
-  readonly lap_duration?: number;
+  readonly lap_duration?: number | null;
+  readonly date_start?: string;
 };
 
 export type OpenF1IntervalMessage = OpenF1MessageMetadata & {
   readonly driver_number: number;
   readonly gap_to_leader?: number | string;
   readonly interval?: number | string;
+  readonly date?: string;
 };
 
 export type OpenF1LocationMessage = OpenF1MessageMetadata & {
