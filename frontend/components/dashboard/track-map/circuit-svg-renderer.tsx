@@ -55,7 +55,7 @@ export function CircuitSvgRenderer({ circuitInfo }: CircuitSvgRendererProps) {
             }
 
             return (
-              <g key={`corner-${corner.number}`} transform={`translate(${point.x + 2.2} ${point.y - 2.2})`}>
+              <g key={`corner-${corner.number}`} transform={`translate(${point.x} ${point.y})`}>
                 <text
                   x="0"
                   y="0.72"
