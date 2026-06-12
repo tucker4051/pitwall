@@ -121,7 +121,6 @@ export function TrackMapPanel({ meeting, dataMode }: TrackMapPanelProps) {
 
       <div className="relative min-h-[240px] flex-1 overflow-hidden">
         <div className="absolute inset-0 z-0 bg-[#070c13]" />
-        <TrackMapDevBadge meeting={meeting} loadState={loadState} />
         {loadState.status === "ready" ? (
           <div className="absolute inset-0 z-10">
             <CircuitSvgRenderer circuitInfo={loadState.circuitInfo} />
@@ -236,25 +235,6 @@ function shouldShowUnavailableState(
   }
 
   return loadState.status !== "ready" && loadState.status !== "loading" && !imageFallbackAvailable;
-}
-
-function TrackMapDevBadge({
-  meeting,
-  loadState
-}: {
-  readonly meeting: MeetingState;
-  readonly loadState: CircuitInfoLoadState;
-}) {
-  if (process.env.NODE_ENV !== "development") {
-    return null;
-  }
-
-  return (
-    <div className="absolute left-3 top-3 z-30 border border-cyan-300 bg-cyan-950/95 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-cyan-100">
-      Track map panel mounted · meeting {meeting.meetingKey ? "yes" : "no"} · image {meeting.circuitImage ? "yes" : "no"} · info{" "}
-      {meeting.circuitInfoUrl ? "yes" : "no"} · {loadState.status}
-    </div>
-  );
 }
 
 function getCircuitInfoFailureReason(error: unknown, timedOut: boolean): "timeout" | "cors-or-network" | "parse-or-shape" | "request" {

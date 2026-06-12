@@ -55,15 +55,18 @@ export function CircuitSvgRenderer({ circuitInfo }: CircuitSvgRendererProps) {
             }
 
             return (
-              <g key={`corner-${corner.number}`} transform={`translate(${point.x} ${point.y})`}>
-                <circle r="1.45" fill="#0b1119" stroke="#f59e0b" strokeOpacity="0.65" strokeWidth="0.35" />
+              <g key={`corner-${corner.number}`} transform={`translate(${point.x + 2.2} ${point.y - 2.2})`}>
                 <text
-                  x="2.1"
-                  y="1.15"
-                  fill="#cbd5e1"
+                  x="0"
+                  y="0.72"
+                  fill="#fbbf24"
                   fontFamily="var(--font-geist-mono), monospace"
-                  fontSize="2.6"
-                  opacity="0.72"
+                  fontSize="2.25"
+                  fontWeight="800"
+                  paintOrder="stroke"
+                  stroke="#05070b"
+                  strokeWidth="0.45"
+                  textAnchor="middle"
                 >
                   {corner.number}
                 </text>
