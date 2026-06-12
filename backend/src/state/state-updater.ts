@@ -90,7 +90,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:location": {
-      const trackPositions = new Map<string, TrackPositionState>();
+      const trackPositions = new Map(state.trackPositions);
 
       for (const position of message.payload.positions) {
         trackPositions.set(position.abbreviation, {
@@ -98,6 +98,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           updatedAt: message.recordedAt
         });
       }
+
+      logLiveMergeDiagnostics(
+        message.type,
+        message.payload.positions.map((position) => Number(position.abbreviation)).filter(Number.isFinite),
+        state.drivers.size,
+        state.timing.drivers.length
+      );
 
       return {
         ...state,
@@ -134,7 +141,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:telemetry": {
-      const telemetry = new Map<number, TelemetrySnapshotState>();
+      const telemetry = new Map(state.telemetry);
 
       for (const snapshot of message.payload.snapshots) {
         telemetry.set(snapshot.driverNumber, {
@@ -142,6 +149,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           updatedAt: message.recordedAt
         });
       }
+
+      logLiveMergeDiagnostics(
+        message.type,
+        message.payload.snapshots.map((snapshot) => snapshot.driverNumber),
+        state.drivers.size,
+        state.timing.drivers.length
+      );
 
       return {
         ...state,
@@ -168,14 +182,24 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:tyre-stint": {
-      const tyreStints = new Map<number, TyreStintState>();
+      const tyreStints = new Map(state.tyreStints);
 
       for (const stint of message.payload.stints) {
+        const existingStint = tyreStints.get(stint.driverNumber);
+
         tyreStints.set(stint.driverNumber, {
+          ...existingStint,
           ...stint,
           updatedAt: message.recordedAt
         });
       }
+
+      logLiveMergeDiagnostics(
+        message.type,
+        message.payload.stints.map((stint) => stint.driverNumber),
+        state.drivers.size,
+        state.timing.drivers.length
+      );
 
       return {
         ...state,
@@ -198,6 +222,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         });
       }
 
+      logLiveMergeDiagnostics(
+        message.type,
+        message.payload.stints.map((stint) => stint.driverNumber),
+        state.drivers.size,
+        state.timing.drivers.length
+      );
+
       return {
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
@@ -215,6 +246,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         drivers.set(key, {
           ...existingDriver,
           driverNumber: driver.driverNumber,
+          nameAcronym: driver.nameAcronym,
           abbreviation: driver.abbreviation,
           position: existingDriver?.position ?? 0,
           fullName: driver.fullName,
@@ -222,35 +254,26 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         });
       }
 
-      return {
-        ...state,
-        connection: createFreshConnectionState(state.connection, message.recordedAt),
-        drivers
-      };
-    }
+      const timingDrivers = state.timing.drivers.map((timingDriver) => {
+        if (!timingDriver.driverNumber) {
+          return timingDriver;
+        }
 
-    case "openf1:position": {
-      const drivers = new Map(state.drivers);
-      const timingDrivers = [...message.payload.positions]
-        .sort((a, b) => a.position - b.position)
-        .map((position) => {
-          const key = String(position.driverNumber);
-          const existingDriver = drivers.get(key);
-          const abbreviation = existingDriver?.abbreviation ?? String(position.driverNumber);
+        const driver = drivers.get(String(timingDriver.driverNumber));
 
-          drivers.set(key, {
-            ...existingDriver,
-            driverNumber: position.driverNumber,
-            abbreviation,
-            position: position.position
-          });
+        if (!driver) {
+          return timingDriver;
+        }
 
-          return {
-            position: position.position,
-            abbreviation,
-            gapToLeader: position.position === 1 ? "LEADER" : ""
-          };
-        });
+        return {
+          ...timingDriver,
+          ...driver,
+          gapToLeader: timingDriver.gapToLeader,
+          intervalToAhead: timingDriver.intervalToAhead,
+          lastLapTime: timingDriver.lastLapTime,
+          bestLapTime: timingDriver.bestLapTime
+        };
+      });
 
       return {
         ...state,
@@ -258,7 +281,51 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         drivers,
         timing: {
           ...state.timing,
-          drivers: timingDrivers
+          drivers: sortTimingDrivers(timingDrivers)
+        }
+      };
+    }
+
+    case "openf1:position": {
+      const drivers = new Map(state.drivers);
+      const timingDrivers = [...state.timing.drivers];
+
+      for (const position of message.payload.positions) {
+        const key = String(position.driverNumber);
+        const existingDriver = drivers.get(key);
+        const existingTimingDriver = findTimingDriver(timingDrivers, position.driverNumber);
+        const abbreviation = existingDriver?.abbreviation ?? existingTimingDriver?.abbreviation ?? String(position.driverNumber);
+        const nextTimingDriver: TimingDriverState = {
+          ...existingTimingDriver,
+          ...existingDriver,
+          driverNumber: position.driverNumber,
+          abbreviation,
+          position: position.position,
+          gapToLeader:
+            position.position === 1
+              ? "LEADER"
+              : (existingTimingDriver?.gapToLeader ?? "")
+        };
+
+        drivers.set(key, {
+          ...existingDriver,
+          driverNumber: position.driverNumber,
+          abbreviation,
+          position: position.position
+        });
+
+        upsertTimingDriver(timingDrivers, nextTimingDriver);
+      }
+
+      logLiveMergeDiagnostics(message.type, message.payload.positions.map((position) => position.driverNumber), drivers.size, timingDrivers.length);
+
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        drivers,
+        timing: {
+          ...state.timing,
+          drivers: sortTimingDrivers(timingDrivers)
         }
       };
     }
@@ -270,8 +337,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       for (const driverUpdate of message.payload.drivers) {
         const key = String(driverUpdate.driverNumber);
         const existingDriver = drivers.get(key);
-        const abbreviation = existingDriver?.abbreviation ?? String(driverUpdate.driverNumber);
-        const existingTimingDriver = timingDrivers.find((driver) => driver.abbreviation === abbreviation);
+        const existingTimingDriver = findTimingDriver(timingDrivers, driverUpdate.driverNumber);
+        const abbreviation = existingDriver?.abbreviation ?? existingTimingDriver?.abbreviation ?? String(driverUpdate.driverNumber);
         const nextTimingDriver: TimingDriverState = {
           ...existingTimingDriver,
           ...existingDriver,
@@ -291,14 +358,10 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           position: nextTimingDriver.position
         });
 
-        const existingIndex = timingDrivers.findIndex((driver) => driver.abbreviation === abbreviation);
-
-        if (existingIndex >= 0) {
-          timingDrivers[existingIndex] = nextTimingDriver;
-        } else {
-          timingDrivers.push(nextTimingDriver);
-        }
+        upsertTimingDriver(timingDrivers, nextTimingDriver);
       }
+
+      logLiveMergeDiagnostics(message.type, message.payload.drivers.map((driver) => driver.driverNumber), drivers.size, timingDrivers.length);
 
       return {
         ...state,
@@ -306,7 +369,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         drivers,
         timing: {
           lap: message.payload.lap ?? state.timing.lap,
-          drivers: timingDrivers.sort((a, b) => a.position - b.position)
+          drivers: sortTimingDrivers(timingDrivers)
         }
       };
     }
@@ -494,4 +557,52 @@ function mergeRaceControlMessages(
   return Array.from(messagesById.values())
     .sort((a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt))
     .slice(0, MAX_RACE_CONTROL_MESSAGES);
+}
+
+function findTimingDriver(
+  timingDrivers: readonly TimingDriverState[],
+  driverNumber: number
+): TimingDriverState | undefined {
+  return timingDrivers.find((driver) => driver.driverNumber === driverNumber);
+}
+
+function upsertTimingDriver(timingDrivers: TimingDriverState[], nextTimingDriver: TimingDriverState): void {
+  const existingIndex = nextTimingDriver.driverNumber
+    ? timingDrivers.findIndex((driver) => driver.driverNumber === nextTimingDriver.driverNumber)
+    : timingDrivers.findIndex((driver) => driver.abbreviation === nextTimingDriver.abbreviation);
+
+  if (existingIndex >= 0) {
+    timingDrivers[existingIndex] = nextTimingDriver;
+    return;
+  }
+
+  timingDrivers.push(nextTimingDriver);
+}
+
+function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonly TimingDriverState[] {
+  return [...timingDrivers].sort((left, right) => {
+    const leftPosition = left.position > 0 ? left.position : Number.MAX_SAFE_INTEGER;
+    const rightPosition = right.position > 0 ? right.position : Number.MAX_SAFE_INTEGER;
+
+    if (leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+
+    return left.abbreviation.localeCompare(right.abbreviation);
+  });
+}
+
+function logLiveMergeDiagnostics(
+  sourceType: SourceMessage["type"],
+  driverNumbers: readonly number[],
+  knownDriverCount: number,
+  timingRowCount: number
+): void {
+  console.log("OpenF1 incremental update merged into CurrentRaceState.", {
+    sourceType,
+    driverNumbers,
+    updateShape: driverNumbers.length <= 1 ? "incremental" : "multi-row",
+    knownDriverCount,
+    timingRowCount
+  });
 }

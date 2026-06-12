@@ -3,6 +3,8 @@ import type { ConnectionState, SessionState, TimingDriver } from "./types";
 export type TimingTowerRow = TimingDriver & {
   readonly rowKey: string;
   readonly displayPosition: string;
+  readonly displayLabel: string;
+  readonly hasDriverMetadata: boolean;
 };
 
 export type TimingTowerRowsResult = {
@@ -107,7 +109,8 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
   return normaliseDriver({
     ...existingDriver,
     ...nextDriver,
-    abbreviation: nextDriver.abbreviation || existingDriver.abbreviation,
+    nameAcronym: nextDriver.nameAcronym ?? existingDriver.nameAcronym,
+    abbreviation: chooseDisplayAbbreviation(existingDriver, nextDriver),
     fullName: nextDriver.fullName ?? existingDriver.fullName,
     teamName: nextDriver.teamName ?? existingDriver.teamName,
     gapToLeader: nextDriver.gapToLeader || existingDriver.gapToLeader || "--",
@@ -118,11 +121,11 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
 }
 
 function normaliseDriver(driver: TimingDriver): TimingDriver {
-  const fallbackAbbreviation = driver.driverNumber ? `#${driver.driverNumber}` : driver.abbreviation || "---";
+  const fallbackAbbreviation = driver.driverNumber ? String(driver.driverNumber) : driver.abbreviation || "---";
 
   return {
     ...driver,
-    abbreviation: driver.abbreviation || fallbackAbbreviation,
+    abbreviation: driver.nameAcronym ?? driver.abbreviation ?? fallbackAbbreviation,
     position: Number.isFinite(driver.position) && driver.position > 0 ? driver.position : Number.MAX_SAFE_INTEGER,
     gapToLeader: driver.gapToLeader || "--",
     intervalToAhead: driver.intervalToAhead ?? "--"
@@ -133,7 +136,9 @@ function toTimingTowerRow(driver: TimingDriver): TimingTowerRow {
   return {
     ...driver,
     rowKey: getDriverRowKey(driver),
-    displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position)
+    displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position),
+    displayLabel: getTimingTowerDisplayLabel(driver),
+    hasDriverMetadata: Boolean(getAcronym(driver))
   };
 }
 
@@ -142,7 +147,7 @@ function compareTimingTowerRows(left: TimingTowerRow, right: TimingTowerRow): nu
     return left.position - right.position;
   }
 
-  return left.abbreviation.localeCompare(right.abbreviation);
+  return (left.nameAcronym ?? left.abbreviation).localeCompare(right.nameAcronym ?? right.abbreviation);
 }
 
 function getDriverRowKey(driver: TimingDriver): string {
@@ -151,6 +156,74 @@ function getDriverRowKey(driver: TimingDriver): string {
   }
 
   return `abbr-${driver.abbreviation || "unknown"}`;
+}
+
+function chooseDisplayAbbreviation(existingDriver: TimingDriver, nextDriver: TimingDriver): string {
+  if (nextDriver.nameAcronym) {
+    return nextDriver.nameAcronym;
+  }
+
+  if (existingDriver.nameAcronym) {
+    return existingDriver.nameAcronym;
+  }
+
+  if (isNumericDriverLabel(nextDriver.abbreviation) && !isNumericDriverLabel(existingDriver.abbreviation)) {
+    return existingDriver.abbreviation;
+  }
+
+  return nextDriver.abbreviation || existingDriver.abbreviation;
+}
+
+function isNumericDriverLabel(value: string | null | undefined): boolean {
+  return Boolean(value && /^#?\d+$/.test(value.trim()));
+}
+
+function getTimingTowerDisplayLabel(driver: TimingDriver): string {
+  return getAcronym(driver) ?? deriveInitials(driver.fullName) ?? "---";
+}
+
+function getAcronym(driver: TimingDriver): string | null {
+  return normaliseAcronym(driver.nameAcronym) ?? normaliseAcronym(driver.abbreviation);
+}
+
+function normaliseAcronym(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue || isNumericDriverLabel(trimmedValue)) {
+    return null;
+  }
+
+  return trimmedValue.toUpperCase().slice(0, 3);
+}
+
+function deriveInitials(fullName: string | null | undefined): string | null {
+  if (!fullName) {
+    return null;
+  }
+
+  const words = fullName
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.replace(/[^a-z]/gi, ""))
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return null;
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 3).toUpperCase();
+  }
+
+  const firstInitial = words[0][0] ?? "";
+  const lastNamePrefix = words[words.length - 1].slice(0, 2);
+  const derived = `${firstInitial}${lastNamePrefix}`.toUpperCase();
+
+  return derived || null;
 }
 
 function findExistingDriverRowKey(

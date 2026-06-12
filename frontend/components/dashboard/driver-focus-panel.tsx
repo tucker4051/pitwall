@@ -32,7 +32,7 @@ export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelP
             <span className="h-4 w-1.5 border" style={getTeamStripStyle(identity.teamProfile)} />
             <span className="font-mono text-[10px] uppercase text-slate-500">{identity.teamProfile.displayName}</span>
           </div>
-          <p className="font-mono text-5xl font-black text-slate-100">{driver?.abbreviation ?? "---"}</p>
+          <p className="font-mono text-5xl font-black text-slate-100">{identity.displayAcronym}</p>
           <p className="mt-1 text-xs uppercase text-slate-500">{driver?.fullName ?? "Selected driver"}</p>
           <p className="text-xs uppercase text-slate-400">{identity.teamName}</p>
         </div>

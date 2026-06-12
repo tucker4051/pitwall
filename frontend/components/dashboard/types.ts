@@ -19,6 +19,7 @@ export type SessionState = {
 
 export type TimingDriver = {
   readonly driverNumber?: number;
+  readonly nameAcronym?: string;
   readonly abbreviation: string;
   readonly position: number;
   readonly fullName?: string;

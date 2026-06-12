@@ -106,6 +106,7 @@ function mapDriverMessage(
         drivers: [
           {
             driverNumber: payload.driver_number,
+            nameAcronym: payload.name_acronym,
             abbreviation: payload.name_acronym,
             fullName: readOptionalString(payload.full_name),
             teamName: readOptionalString(payload.team_name)

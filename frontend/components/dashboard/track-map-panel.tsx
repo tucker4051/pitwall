@@ -54,9 +54,9 @@ export function TrackMapPanel({ positions, drivers, selectedDriver, dataMode }: 
 
         {visiblePositions.map((position) => {
           const matchingDriver = findDriverForPosition(position.abbreviation, drivers);
-          const abbreviation = matchingDriver?.abbreviation ?? position.abbreviation;
-          const selected = abbreviation === selectedDriver;
           const identity = getDriverIdentity(matchingDriver);
+          const markerLabel = matchingDriver ? identity.displayAcronym : position.abbreviation;
+          const selected = matchingDriver?.abbreviation === selectedDriver || markerLabel === selectedDriver;
 
           return (
             <div
@@ -75,7 +75,7 @@ export function TrackMapPanel({ positions, drivers, selectedDriver, dataMode }: 
                 }`}
                 style={getTeamMarkerStyle(identity.teamProfile, selected)}
               >
-                {abbreviation}
+                {markerLabel}
               </div>
             </div>
           );

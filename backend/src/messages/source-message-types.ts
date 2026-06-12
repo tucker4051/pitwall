@@ -202,6 +202,7 @@ export type MockTyreStint = {
 
 export type OpenF1InternalDriver = {
   readonly driverNumber: number;
+  readonly nameAcronym?: string;
   readonly abbreviation: string;
   readonly fullName?: string;
   readonly teamName?: string;

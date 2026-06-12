@@ -14,6 +14,7 @@ export type SessionState = {
 
 export type DriverState = {
   readonly driverNumber?: number;
+  readonly nameAcronym?: string;
   readonly abbreviation: string;
   readonly position: number;
   readonly fullName?: string;

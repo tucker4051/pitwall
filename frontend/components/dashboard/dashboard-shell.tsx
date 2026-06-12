@@ -161,7 +161,6 @@ export function DashboardShell() {
           <div className="min-h-0">
             <TimingTowerPanel
               rowsResult={timingTowerRowsResult}
-              stints={dashboard.stints}
               selectedDriverKey={selectedTimingDriver?.rowKey ?? effectiveSelectedDriverKey}
               onSelectDriver={(driver) => setSelectedDriverKey(driver.rowKey)}
             />
