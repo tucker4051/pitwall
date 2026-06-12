@@ -1,105 +1,282 @@
-import { findDriverForPosition, getDriverIdentity } from "./driver-identity";
-import { normaliseCoordinate } from "./format";
-import { getTeamMarkerStyle } from "./team-colours";
-import type { DashboardDataMode, TimingDriver, TrackPosition } from "./types";
+"use client";
+
+import { useEffect, useState } from "react";
+
+import { loadCircuitInfo } from "./track-map/circuit-info-loader";
+import type { CircuitInfoLoadState } from "./track-map/circuit-info-types";
+import { CircuitSvgRenderer } from "./track-map/circuit-svg-renderer";
+import type { DashboardDataMode, MeetingState } from "./types";
 
 type TrackMapPanelProps = {
-  readonly positions: readonly TrackPosition[];
-  readonly drivers: readonly TimingDriver[];
-  readonly selectedDriver: string;
+  readonly meeting: MeetingState;
   readonly dataMode: DashboardDataMode;
 };
 
-const FALLBACK_POSITIONS: readonly TrackPosition[] = [
-  { abbreviation: "VER", x: 18, y: 34, z: 0, updatedAt: "" },
-  { abbreviation: "NOR", x: 44, y: 60, z: 0, updatedAt: "" },
-  { abbreviation: "LEC", x: 72, y: 40, z: 0, updatedAt: "" },
-  { abbreviation: "PIA", x: 62, y: 23, z: 0, updatedAt: "" },
-  { abbreviation: "RUS", x: 28, y: 70, z: 0, updatedAt: "" },
-  { abbreviation: "HAM", x: 82, y: 66, z: 0, updatedAt: "" }
-];
+const INITIAL_LOAD_STATE: CircuitInfoLoadState = {
+  status: "idle",
+  circuitInfo: null
+};
 
-export function TrackMapPanel({ positions, drivers, selectedDriver, dataMode }: TrackMapPanelProps) {
-  const visiblePositions = positions.length > 0 ? positions : dataMode === "mock" ? FALLBACK_POSITIONS : [];
+const CIRCUIT_INFO_TIMEOUT_MS = 4_000;
+
+export function TrackMapPanel({ meeting, dataMode }: TrackMapPanelProps) {
+  const [loadedCircuitInfo, setLoadedCircuitInfo] = useState<{
+    readonly url: string;
+    readonly loadState: CircuitInfoLoadState;
+  } | null>(null);
+  const [imageLoadFailedForUrl, setImageLoadFailedForUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!meeting.circuitInfoUrl) {
+      return;
+    }
+
+    const circuitInfoUrl = meeting.circuitInfoUrl;
+    const abortController = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, CIRCUIT_INFO_TIMEOUT_MS);
+
+    logTrackMapDiagnostic("circuitInfoUrl fetch started", {
+      circuitInfoUrlPresent: true,
+      circuitImagePresent: Boolean(meeting.circuitImage)
+    });
+
+    loadCircuitInfo(circuitInfoUrl, abortController.signal)
+      .then((circuitInfo) => {
+        clearTimeout(timeout);
+        logTrackMapDiagnostic("circuitInfoUrl parsed", {
+          pointCount: circuitInfo.x.length,
+          cornerCount: circuitInfo.corners.length
+        });
+        setLoadedCircuitInfo({
+          url: circuitInfoUrl,
+          loadState: {
+            status: "ready",
+            circuitInfo
+          }
+        });
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timeout);
+
+        if (error instanceof DOMException && error.name === "AbortError" && !timedOut) {
+          return;
+        }
+
+        logTrackMapDiagnostic("circuitInfoUrl fetch failed", {
+          reason: getCircuitInfoFailureReason(error, timedOut),
+          circuitImageFallbackAvailable: Boolean(meeting.circuitImage)
+        });
+        setLoadedCircuitInfo({
+          url: circuitInfoUrl,
+          loadState: {
+            status: "error",
+            circuitInfo: null
+          }
+        });
+      });
+
+    return () => {
+      clearTimeout(timeout);
+      abortController.abort();
+    };
+  }, [meeting.circuitImage, meeting.circuitInfoUrl]);
+
+  useEffect(() => {
+    logTrackMapDiagnostic("meeting received", {
+      hasMeeting: Boolean(meeting.meetingKey),
+      circuitInfoUrlPresent: Boolean(meeting.circuitInfoUrl),
+      circuitImagePresent: Boolean(meeting.circuitImage),
+      circuitShortNamePresent: Boolean(meeting.circuitShortName)
+    });
+  }, [meeting.circuitImage, meeting.circuitInfoUrl, meeting.circuitShortName, meeting.meetingKey]);
+
+  const loadState = getEffectiveLoadState(meeting.circuitInfoUrl, loadedCircuitInfo);
+  const title = loadState.circuitInfo?.circuitName ?? meeting.circuitShortName ?? "Circuit";
+  const subtitle = formatCircuitSubtitle(meeting);
+  const sourceLabel = getSourceLabel(loadState, meeting);
+  const imageFallbackAvailable = Boolean(meeting.circuitImage && imageLoadFailedForUrl !== meeting.circuitImage);
+  const shouldRenderImageFallback = loadState.status !== "ready" && imageFallbackAvailable;
+
+  useEffect(() => {
+    if (shouldRenderImageFallback) {
+      logTrackMapDiagnostic("circuitImage fallback used", {
+        loadStatus: loadState.status
+      });
+    }
+  }, [loadState.status, shouldRenderImageFallback]);
 
   return (
-    <section className="relative min-h-0 overflow-hidden border border-slate-800 bg-[#080d14]">
-      <div className="absolute inset-x-0 top-0 z-10 flex h-10 items-center justify-between border-b border-slate-800 bg-[#0b1119]/95 px-3">
-        <h2 className="text-[11px] font-bold uppercase text-slate-300">Live track map · Silverstone</h2>
-        <span className="font-mono text-[11px] text-slate-500">Abstract circuit</span>
+    <section className="relative flex h-full min-h-[280px] flex-col overflow-hidden border border-cyan-500/30 bg-[#080d14]">
+      <div className="relative z-30 flex h-10 shrink-0 items-center justify-between border-b border-slate-800 bg-[#0b1119]/95 px-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300">Live circuit · {title}</h2>
+          {subtitle ? <p className="truncate font-mono text-[10px] uppercase text-slate-500">{subtitle}</p> : null}
+        </div>
+        <span className="shrink-0 font-mono text-[11px] uppercase text-slate-500">{sourceLabel}</span>
       </div>
 
-      <div className="absolute inset-0 top-10">
-        <div className="absolute inset-0 bg-[linear-gradient(#1f2b3a33_1px,transparent_1px),linear-gradient(90deg,#1f2b3a33_1px,transparent_1px)] bg-[size:32px_32px]" />
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-          <path
-            d="M14 56 C13 24 40 12 64 21 C88 30 92 58 77 76 C61 94 27 87 20 68 C15 55 30 40 45 45 C62 50 66 66 54 76"
-            fill="none"
-            stroke="#263445"
-            strokeWidth="8"
-            strokeLinecap="round"
+      <div className="relative min-h-[240px] flex-1 overflow-hidden">
+        <div className="absolute inset-0 z-0 bg-[#070c13]" />
+        <TrackMapDevBadge meeting={meeting} loadState={loadState} />
+        {loadState.status === "ready" ? (
+          <div className="absolute inset-0 z-10">
+            <CircuitSvgRenderer circuitInfo={loadState.circuitInfo} />
+          </div>
+        ) : null}
+        {shouldRenderImageFallback && meeting.circuitImage ? (
+          <CircuitImageFallback
+            imageUrl={meeting.circuitImage}
+            circuitName={title}
+            onImageError={() => {
+              setImageLoadFailedForUrl(meeting.circuitImage);
+              logTrackMapDiagnostic("circuitImage fallback failed", {
+                imageUrlPresent: true
+              });
+            }}
           />
-          <path
-            d="M14 56 C13 24 40 12 64 21 C88 30 92 58 77 76 C61 94 27 87 20 68 C15 55 30 40 45 45 C62 50 66 66 54 76"
-            fill="none"
-            stroke="#94a3b8"
-            strokeOpacity="0.7"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-          <path d="M14 56 C13 24 40 12 64 21" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-
-        {visiblePositions.length === 0 ? <TrackEmptyState dataMode={dataMode} /> : null}
-
-        {visiblePositions.map((position) => {
-          const matchingDriver = findDriverForPosition(position.abbreviation, drivers);
-          const identity = getDriverIdentity(matchingDriver);
-          const markerLabel = matchingDriver ? identity.displayAcronym : position.abbreviation;
-          const selected = matchingDriver?.abbreviation === selectedDriver || markerLabel === selectedDriver;
-
-          return (
-            <div
-              key={`${position.abbreviation}-${position.updatedAt}`}
-              className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: `${normaliseCoordinate(position.x)}%`,
-                top: `${normaliseCoordinate(position.y)}%`
-              }}
-            >
-              <div
-                className={`flex h-7 min-w-9 items-center justify-center border px-2 font-mono text-[11px] font-black ${
-                  selected
-                    ? "ring-2 ring-cyan-300/40"
-                    : ""
-                }`}
-                style={getTeamMarkerStyle(identity.teamProfile, selected)}
-              >
-                {markerLabel}
-              </div>
-            </div>
-          );
-        })}
-
-        <div className="absolute bottom-3 left-3 grid grid-cols-3 gap-2 text-[10px] uppercase text-slate-500">
-          <span className="border border-slate-800 bg-[#0b1119] px-2 py-1">Sector 1</span>
-          <span className="border border-slate-800 bg-[#0b1119] px-2 py-1">Sector 2</span>
-          <span className="border border-emerald-500/40 bg-emerald-500/10 px-2 py-1 text-emerald-300">Green</span>
-        </div>
+        ) : null}
+        {loadState.status === "loading" ? <TrackPanelState title="Loading circuit map" /> : null}
+        {shouldShowWaitingState(loadState, meeting, dataMode) ? <TrackPanelState title="Waiting for meeting circuit data" /> : null}
+        {shouldShowUnavailableState(loadState, meeting, dataMode, imageFallbackAvailable) ? <TrackPanelState title="Circuit map unavailable" /> : null}
       </div>
     </section>
   );
 }
 
-function TrackEmptyState({ dataMode }: { readonly dataMode: DashboardDataMode }) {
-  const message = dataMode === "live" ? "Waiting for live track positions" : "Waiting for dashboard data";
+function getEffectiveLoadState(
+  circuitInfoUrl: string | null,
+  loadedCircuitInfo: {
+    readonly url: string;
+    readonly loadState: CircuitInfoLoadState;
+  } | null
+): CircuitInfoLoadState {
+  if (!circuitInfoUrl) {
+    return INITIAL_LOAD_STATE;
+  }
 
+  if (loadedCircuitInfo?.url === circuitInfoUrl) {
+    return loadedCircuitInfo.loadState;
+  }
+
+  return {
+    status: "loading",
+    circuitInfo: null
+  };
+}
+
+function CircuitImageFallback({
+  imageUrl,
+  circuitName,
+  onImageError
+}: {
+  readonly imageUrl: string;
+  readonly circuitName: string;
+  readonly onImageError: () => void;
+}) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center">
+    <div className="absolute inset-0 z-10 flex items-center justify-center p-8">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imageUrl}
+        alt={`${circuitName} circuit map`}
+        className="block max-h-full max-w-full object-contain opacity-90"
+        onError={onImageError}
+      />
+    </div>
+  );
+}
+
+function TrackPanelState({ title }: { readonly title: string }) {
+  return (
+    <div className="absolute inset-0 z-20 flex items-center justify-center">
       <div className="border border-slate-800 bg-[#0b1119]/90 px-4 py-3 text-center">
-        <p className="text-[11px] font-bold uppercase text-slate-300">{message}</p>
-        <p className="mt-1 text-xs text-slate-500">Driver markers will appear when location data arrives.</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300">{title}</p>
       </div>
     </div>
   );
+}
+
+function formatCircuitSubtitle(meeting: MeetingState): string {
+  const parts = [meeting.location, meeting.countryName].filter(Boolean);
+  return parts.join(" / ");
+}
+
+function getSourceLabel(loadState: CircuitInfoLoadState, meeting: MeetingState): string {
+  if (loadState.status === "ready") {
+    return "Circuit info";
+  }
+
+  if (meeting.circuitImage && loadState.status !== "loading") {
+    return "Image fallback";
+  }
+
+  return meeting.circuitInfoUrl ? "Circuit info" : "Awaiting data";
+}
+
+function shouldShowWaitingState(
+  loadState: CircuitInfoLoadState,
+  meeting: MeetingState,
+  dataMode: DashboardDataMode
+): boolean {
+  return dataMode !== "mock" && !meeting.meetingKey && loadState.status !== "loading";
+}
+
+function shouldShowUnavailableState(
+  loadState: CircuitInfoLoadState,
+  meeting: MeetingState,
+  dataMode: DashboardDataMode,
+  imageFallbackAvailable: boolean
+): boolean {
+  if (shouldShowWaitingState(loadState, meeting, dataMode)) {
+    return false;
+  }
+
+  return loadState.status !== "ready" && loadState.status !== "loading" && !imageFallbackAvailable;
+}
+
+function TrackMapDevBadge({
+  meeting,
+  loadState
+}: {
+  readonly meeting: MeetingState;
+  readonly loadState: CircuitInfoLoadState;
+}) {
+  if (process.env.NODE_ENV !== "development") {
+    return null;
+  }
+
+  return (
+    <div className="absolute left-3 top-3 z-30 border border-cyan-300 bg-cyan-950/95 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.08em] text-cyan-100">
+      Track map panel mounted · meeting {meeting.meetingKey ? "yes" : "no"} · image {meeting.circuitImage ? "yes" : "no"} · info{" "}
+      {meeting.circuitInfoUrl ? "yes" : "no"} · {loadState.status}
+    </div>
+  );
+}
+
+function getCircuitInfoFailureReason(error: unknown, timedOut: boolean): "timeout" | "cors-or-network" | "parse-or-shape" | "request" {
+  if (timedOut) {
+    return "timeout";
+  }
+
+  if (error instanceof TypeError) {
+    return "cors-or-network";
+  }
+
+  if (error instanceof Error && error.message.toLowerCase().includes("circuit info")) {
+    return "parse-or-shape";
+  }
+
+  return "request";
+}
+
+function logTrackMapDiagnostic(message: string, metadata: Record<string, boolean | number | string>): void {
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
+  console.info(`TrackMapPanel ${message}.`, metadata);
 }

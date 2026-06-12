@@ -192,9 +192,7 @@ export function DashboardShell() {
 
           <div className="grid min-h-0 grid-rows-[minmax(360px,1fr)_minmax(250px,32vh)] gap-3">
             <TrackMapPanel
-              positions={dashboard.trackPositions}
-              drivers={visibleDrivers}
-              selectedDriver={selectedTimingDriver?.abbreviation ?? ""}
+              meeting={dashboard.meeting}
               dataMode={dashboard.connection.dataMode}
             />
             <RaceContextPanel

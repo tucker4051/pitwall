@@ -24,7 +24,7 @@ export function TopStatusBar({ dashboard, socketStatus, now }: TopStatusBarProps
         <div className="h-8 w-1 bg-red-500" />
         <div>
           <p className="text-lg font-black uppercase text-slate-100">PitWall</p>
-          <p className="text-[10px] font-semibold uppercase text-slate-500">Race operations</p>
+          <p className="text-[10px] font-semibold uppercase text-slate-500">Race Companion</p>
         </div>
       </div>
 
