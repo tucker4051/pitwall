@@ -16,6 +16,7 @@ export type OpenF1MappedTopic =
 export type OpenF1MessageMetadata = {
   readonly _id?: string | number;
   readonly _key?: string;
+  readonly meeting_key?: string | number;
   readonly session_key?: string | number;
 };
 

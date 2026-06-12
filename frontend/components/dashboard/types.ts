@@ -13,8 +13,31 @@ export type ConnectionState = {
 };
 
 export type SessionState = {
+  readonly meetingKey: number | null;
+  readonly sessionKey: number | null;
   readonly name: string | null;
   readonly type: string | null;
+  readonly dateStart: string | null;
+  readonly dateEnd: string | null;
+};
+
+export type MeetingState = {
+  readonly meetingKey: number | null;
+  readonly name: string | null;
+  readonly officialName: string | null;
+  readonly circuitKey: number | null;
+  readonly circuitShortName: string | null;
+  readonly circuitImage: string | null;
+  readonly circuitInfoUrl: string | null;
+  readonly circuitType: string | null;
+  readonly countryCode: string | null;
+  readonly countryName: string | null;
+  readonly countryFlag: string | null;
+  readonly location: string | null;
+  readonly dateStart: string | null;
+  readonly dateEnd: string | null;
+  readonly gmtOffset: string | null;
+  readonly year: number | null;
 };
 
 export type TimingDriver = {
@@ -83,6 +106,7 @@ export type TyreStint = {
 
 export type DashboardState = {
   readonly connection: ConnectionState;
+  readonly meeting: MeetingState;
   readonly session: SessionState;
   readonly timing: TimingState;
   readonly drivers: readonly TimingDriver[];
@@ -103,6 +127,11 @@ export type DashboardMessage =
       readonly type: "session:update";
       readonly sentAt: string;
       readonly payload: SessionState;
+    }
+  | {
+      readonly type: "meeting:update";
+      readonly sentAt: string;
+      readonly payload: MeetingState;
     }
   | {
       readonly type: "drivers:update";

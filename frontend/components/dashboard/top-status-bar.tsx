@@ -8,8 +8,15 @@ type TopStatusBarProps = {
 };
 
 export function TopStatusBar({ dashboard, socketStatus, now }: TopStatusBarProps) {
-  const sessionName = dashboard.session.name ?? dashboard.connection.sessionName ?? getFallbackSessionName(dashboard.connection.dataMode);
+  const sessionName =
+    dashboard.meeting.name ??
+    dashboard.session.name ??
+    dashboard.connection.sessionName ??
+    getFallbackSessionName(dashboard.connection.dataMode);
   const sessionType = dashboard.session.type ?? dashboard.connection.sessionType ?? getFallbackSessionType(dashboard.connection.dataMode);
+  const contextDetail = dashboard.session.name
+    ? `${dashboard.session.name}${dashboard.meeting.circuitShortName ? ` / ${dashboard.meeting.circuitShortName}` : ""}`
+    : sessionType;
 
   return (
     <header className="grid h-16 shrink-0 grid-cols-[220px_1fr_auto] items-center border-b border-slate-800 bg-[#080b10] px-4">
@@ -24,7 +31,7 @@ export function TopStatusBar({ dashboard, socketStatus, now }: TopStatusBarProps
       <div className="grid min-w-0 grid-cols-[minmax(180px,1fr)_repeat(4,auto)] items-center gap-4">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold uppercase text-slate-200">{sessionName}</p>
-          <p className="text-[11px] uppercase text-slate-500">{sessionType}</p>
+          <p className="truncate text-[11px] uppercase text-slate-500">{contextDetail}</p>
         </div>
         <StatusPill label="Live" tone="red" />
         <StatusPill label={socketStatus} tone={socketStatus === "connected" ? "green" : "amber"} />

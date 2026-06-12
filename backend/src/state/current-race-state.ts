@@ -15,9 +15,31 @@ export function createInitialCurrentRaceState(
       isStale: false,
       staleThresholdMs
     },
-    session: {
+    meeting: {
+      meetingKey: null,
       name: null,
-      type: null
+      officialName: null,
+      circuitKey: null,
+      circuitShortName: null,
+      circuitImage: null,
+      circuitInfoUrl: null,
+      circuitType: null,
+      countryCode: null,
+      countryName: null,
+      countryFlag: null,
+      location: null,
+      dateStart: null,
+      dateEnd: null,
+      gmtOffset: null,
+      year: null
+    },
+    session: {
+      meetingKey: null,
+      sessionKey: null,
+      name: null,
+      type: null,
+      dateStart: null,
+      dateEnd: null
     },
     drivers: new Map(),
     timing: {

@@ -1,4 +1,5 @@
 import { loadConfig } from "./config/env.js";
+import { createOpenF1ContextBootstrap } from "./openf1/openf1-context-bootstrap.js";
 import { createOpenF1Config } from "./openf1/openf1-config.js";
 import { createOpenF1Connector, type OpenF1Connector } from "./openf1/openf1-connector.js";
 import { createOpenF1TokenManager } from "./openf1/openf1-token-manager.js";
@@ -13,6 +14,9 @@ let openF1Connector: OpenF1Connector | null = null;
 if (config.dataMode === "live") {
   const openF1Config = createOpenF1Config(config.openF1);
   const tokenManager = createOpenF1TokenManager(openF1Config);
+  const contextBootstrap = createOpenF1ContextBootstrap(openF1Config, tokenManager, {
+    onSourceMessage: webSocketServer.processSourceMessage
+  });
   openF1Connector = createOpenF1Connector(openF1Config, tokenManager, {
     onSourceMessage: webSocketServer.processSourceMessage
   });
@@ -23,6 +27,12 @@ if (config.dataMode === "live") {
     topicCount: openF1Config.topics.length
   });
   console.log("OpenF1 connector starting.");
+
+  contextBootstrap.bootstrap().catch((error: unknown) => {
+    console.error("OpenF1 context bootstrap failed.", {
+      message: getSafeErrorMessage(error)
+    });
+  });
 
   openF1Connector.connect().catch((error: unknown) => {
     console.error("OpenF1 connector startup failed.", {

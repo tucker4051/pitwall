@@ -46,6 +46,8 @@ export function validateSourceMessage(message: unknown): SourceMessageValidation
       return validateTelemetryMessage(message);
     case "mock:tyre-stint":
       return validateTyreStintMessage(message);
+    case "openf1:meeting":
+      return validateOpenF1MeetingMessage(message);
     case "openf1:session":
       return validateOpenF1SessionMessage(message);
     case "openf1:drivers":
@@ -68,12 +70,26 @@ export function validateSourceMessage(message: unknown): SourceMessageValidation
   }
 }
 
+function validateOpenF1MeetingMessage(message: Record<string, unknown>): SourceMessageValidationResult {
+  const payload = message.payload;
+
+  if (!isRecord(payload) || !isNumber(payload.meetingKey) || !isString(payload.meetingName)) {
+    return invalid("openf1:meeting payload must include meetingKey and meetingName");
+  }
+
+  return valid(message as SourceMessage);
+}
+
 function validateOpenF1SessionMessage(message: Record<string, unknown>): SourceMessageValidationResult {
   const payload = message.payload;
 
   if (
     !isRecord(payload) ||
     !isString(payload.sessionName) ||
+    !optionalNumber(payload.meetingKey) ||
+    !optionalNumber(payload.sessionKey) ||
+    !optionalString(payload.dateStart) ||
+    !optionalString(payload.dateEnd) ||
     (payload.sessionType !== "Race" && payload.sessionType !== "Qualifying" && payload.sessionType !== "Practice")
   ) {
     return invalid("openf1:session payload must include sessionName and supported sessionType");

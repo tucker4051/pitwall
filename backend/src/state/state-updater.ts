@@ -20,8 +20,33 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
         session: {
+          ...state.session,
           name: message.payload.sessionName,
           type: message.payload.sessionType
+        }
+      };
+
+    case "openf1:meeting":
+      return {
+        ...state,
+        connection: createFreshConnectionState(state.connection, message.recordedAt),
+        meeting: {
+          meetingKey: message.payload.meetingKey,
+          name: message.payload.meetingName,
+          officialName: message.payload.meetingOfficialName ?? null,
+          circuitKey: message.payload.circuitKey ?? null,
+          circuitShortName: message.payload.circuitShortName ?? null,
+          circuitImage: message.payload.circuitImage ?? null,
+          circuitInfoUrl: message.payload.circuitInfoUrl ?? null,
+          circuitType: message.payload.circuitType ?? null,
+          countryCode: message.payload.countryCode ?? null,
+          countryName: message.payload.countryName ?? null,
+          countryFlag: message.payload.countryFlag ?? null,
+          location: message.payload.location ?? null,
+          dateStart: message.payload.dateStart ?? null,
+          dateEnd: message.payload.dateEnd ?? null,
+          gmtOffset: message.payload.gmtOffset ?? null,
+          year: message.payload.year ?? null
         }
       };
 
@@ -30,8 +55,12 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
         session: {
+          meetingKey: message.payload.meetingKey ?? state.session.meetingKey,
+          sessionKey: message.payload.sessionKey ?? state.session.sessionKey,
           name: message.payload.sessionName,
-          type: message.payload.sessionType
+          type: message.payload.sessionType,
+          dateStart: message.payload.dateStart ?? state.session.dateStart,
+          dateEnd: message.payload.dateEnd ?? state.session.dateEnd
         }
       };
 
@@ -443,6 +472,13 @@ export function createDashboardMessageFromState(
     case "mock:connection":
       return createConnectionDashboardMessage(state, sentAt);
 
+    case "openf1:meeting":
+      return {
+        type: "meeting:update",
+        sentAt,
+        payload: state.meeting
+      };
+
     case "openf1:session":
       return {
         type: "session:update",
@@ -523,11 +559,11 @@ export function createConnectionDashboardMessage(state: CurrentRaceState, sentAt
   return {
     type: "connection:update",
     sentAt,
-    payload: {
-      status: state.connection.status,
-      dataMode: state.connection.dataMode,
-      sessionName: state.session.name,
-      sessionType: state.session.type,
+      payload: {
+        status: state.connection.status,
+        dataMode: state.connection.dataMode,
+        sessionName: state.session.name ?? state.meeting.name,
+        sessionType: state.session.type,
       lastUpdate: state.connection.lastUpdate,
       lastMessageReceivedAt: state.connection.lastMessageReceivedAt,
       isStale: state.connection.isStale,

@@ -32,9 +32,31 @@ const INITIAL_DASHBOARD_STATE: DashboardState = {
     isStale: false,
     staleThresholdMs: 0
   },
-  session: {
+  meeting: {
+    meetingKey: null,
     name: null,
-    type: null
+    officialName: null,
+    circuitKey: null,
+    circuitShortName: null,
+    circuitImage: null,
+    circuitInfoUrl: null,
+    circuitType: null,
+    countryCode: null,
+    countryName: null,
+    countryFlag: null,
+    location: null,
+    dateStart: null,
+    dateEnd: null,
+    gmtOffset: null,
+    year: null
+  },
+  session: {
+    meetingKey: null,
+    sessionKey: null,
+    name: null,
+    type: null,
+    dateStart: null,
+    dateEnd: null
   },
   timing: {
     lap: null,
@@ -206,6 +228,11 @@ function reduceDashboardMessage(dashboard: DashboardState, message: DashboardMes
       return {
         ...dashboard,
         connection: message.payload
+      };
+    case "meeting:update":
+      return {
+        ...dashboard,
+        meeting: message.payload
       };
     case "session:update":
       return {

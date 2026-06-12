@@ -75,8 +75,12 @@ function mapSessionMessage(
       recordedAt,
       metadata: createMetadata(topic, payload, recordedAt),
       payload: {
+        meetingKey: readNumber(payload.meeting_key),
+        sessionKey: readNumber(payload.session_key),
         sessionName: payload.session_name,
-        sessionType
+        sessionType,
+        dateStart: readOptionalString(payload.date_start),
+        dateEnd: readOptionalString(payload.date_end)
       }
     }
   };
@@ -460,6 +464,7 @@ function createMetadata<TTopic extends OpenF1MappedTopic>(
     topic,
     openF1Id: readOpenF1Id(payload),
     openF1Key: readOptionalString(payload._key),
+    meetingKey: readMeetingKey(payload),
     sessionKey: readSessionKey(payload),
     receivedAt
   };
@@ -482,6 +487,14 @@ function readMessageIdentity(payload: Record<string, unknown>): string | undefin
 
 function readSessionKey(payload: Record<string, unknown>): string | number | undefined {
   return isString(payload.session_key) || isNumber(payload.session_key) ? payload.session_key : undefined;
+}
+
+function readMeetingKey(payload: Record<string, unknown>): string | number | undefined {
+  return isString(payload.meeting_key) || isNumber(payload.meeting_key) ? payload.meeting_key : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return isNumber(value) ? value : undefined;
 }
 
 function readOptionalString(value: unknown): string | undefined {

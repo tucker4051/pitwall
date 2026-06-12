@@ -94,6 +94,8 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
       source: routedMessage.message.metadata?.source ?? "unknown"
     });
 
+    logOpenF1ContextMismatch(currentRaceState, routedMessage.message);
+
     currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
     console.log("CurrentRaceState updated from source message.", {
       sourceType: routedMessage.message.type,
@@ -145,6 +147,10 @@ function sendInitialDashboardSnapshot(
   const sentAt = new Date().toISOString();
   const messages = [];
 
+  if (currentRaceState.meeting.meetingKey) {
+    messages.push(createDashboardMessageFromState(currentRaceState, "openf1:meeting", sentAt));
+  }
+
   if (currentRaceState.session.name || currentRaceState.session.type) {
     messages.push(createDashboardMessageFromState(currentRaceState, "openf1:session", sentAt));
   }
@@ -164,10 +170,55 @@ function sendInitialDashboardSnapshot(
   if (messages.length > 0) {
     console.log("Initial dashboard snapshot sent.", {
       messageTypes: messages.map((message) => message.type),
+      meetingKey: currentRaceState.meeting.meetingKey,
+      sessionKey: currentRaceState.session.sessionKey,
       driverCount: currentRaceState.drivers.size,
       timingRowCount: currentRaceState.timing.drivers.length
     });
   }
+}
+
+function logOpenF1ContextMismatch(
+  currentRaceState: Parameters<typeof createConnectionDashboardMessage>[0],
+  sourceMessage: SourceMessage
+): void {
+  if (sourceMessage.metadata?.source !== "openf1") {
+    return;
+  }
+
+  const messageMeetingKey = normalizeMetadataKey(sourceMessage.metadata.meetingKey);
+  const messageSessionKey = normalizeMetadataKey(sourceMessage.metadata.sessionKey);
+  const currentMeetingKey = currentRaceState.meeting.meetingKey;
+  const currentSessionKey = currentRaceState.session.sessionKey;
+
+  if (currentMeetingKey && messageMeetingKey && messageMeetingKey !== currentMeetingKey) {
+    console.warn("OpenF1 source meeting_key differs from selected context.", {
+      sourceType: sourceMessage.type,
+      messageMeetingKey,
+      selectedMeetingKey: currentMeetingKey
+    });
+  }
+
+  if (currentSessionKey && messageSessionKey && messageSessionKey !== currentSessionKey) {
+    console.warn("OpenF1 source session_key differs from selected context.", {
+      sourceType: sourceMessage.type,
+      messageSessionKey,
+      selectedSessionKey: currentSessionKey
+    });
+  }
+}
+
+function normalizeMetadataKey(value: string | number | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function startMockMessageStream(processSourceMessage: (sourceMessage: SourceMessage) => void): void {

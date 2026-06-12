@@ -3,6 +3,7 @@ export type SourceMessageMetadata = {
   readonly topic?: string;
   readonly openF1Id?: string | number;
   readonly openF1Key?: string;
+  readonly meetingKey?: string | number;
   readonly sessionKey?: string | number;
   readonly receivedAt?: string;
 };
@@ -67,12 +68,22 @@ export type MockSourceMessage =
 
 export type OpenF1SourceMessage =
   | {
+      readonly type: "openf1:meeting";
+      readonly recordedAt: string;
+      readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/meetings" };
+      readonly payload: OpenF1InternalMeeting;
+    }
+  | {
       readonly type: "openf1:session";
       readonly recordedAt: string;
       readonly metadata: SourceMessageMetadata & { readonly source: "openf1"; readonly topic: "v1/sessions" };
       readonly payload: {
+        readonly meetingKey?: number;
+        readonly sessionKey?: number;
         readonly sessionName: string;
         readonly sessionType: "Race" | "Qualifying" | "Practice";
+        readonly dateStart?: string;
+        readonly dateEnd?: string;
       };
     }
   | {
@@ -211,6 +222,25 @@ export type OpenF1InternalDriver = {
   readonly teamColour?: string;
 };
 
+export type OpenF1InternalMeeting = {
+  readonly meetingKey: number;
+  readonly meetingName: string;
+  readonly meetingOfficialName?: string;
+  readonly circuitKey?: number;
+  readonly circuitShortName?: string;
+  readonly circuitImage?: string;
+  readonly circuitInfoUrl?: string;
+  readonly circuitType?: string;
+  readonly countryCode?: string;
+  readonly countryName?: string;
+  readonly countryFlag?: string;
+  readonly location?: string;
+  readonly dateStart?: string;
+  readonly dateEnd?: string;
+  readonly gmtOffset?: string;
+  readonly year?: number;
+};
+
 export type OpenF1InternalPosition = {
   readonly driverNumber: number;
   readonly position: number;
@@ -243,6 +273,7 @@ export const MOCK_SOURCE_MESSAGE_TYPES = [
 
 export const SOURCE_MESSAGE_TYPES = [
   ...MOCK_SOURCE_MESSAGE_TYPES,
+  "openf1:meeting",
   "openf1:session",
   "openf1:drivers",
   "openf1:position",
