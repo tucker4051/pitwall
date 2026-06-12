@@ -254,7 +254,10 @@ function validateOpenF1PositionMessage(message: Record<string, unknown>): Source
 
   const positionsAreValid = payload.positions.every(
     (position) =>
-      isRecord(position) && isNumber(position.driverNumber) && isNumber(position.position)
+      isRecord(position) &&
+      isNumber(position.driverNumber) &&
+      isNumber(position.position) &&
+      optionalString(position.updatedAt)
   );
 
   return positionsAreValid ? valid(message as SourceMessage) : invalid("openf1:position positions are malformed");

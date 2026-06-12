@@ -164,7 +164,7 @@ function toTimingTowerRow(driver: TimingDriver): TimingTowerRow {
   return {
     ...driver,
     rowKey: getDriverRowKey(driver),
-    displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position),
+    displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position).padStart(2, "0"),
     displayLabel: getTimingTowerDisplayLabel(driver),
     hasDriverMetadata: Boolean(getAcronym(driver))
   };

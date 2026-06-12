@@ -37,17 +37,20 @@ assertSessionScopedStateCleared();
 state = applyMessages(state, [
   createDriversMessage(sessionB, [
     { driverNumber: 1, nameAcronym: "VER", fullName: "Max Verstappen", teamName: "Red Bull Racing" },
-    { driverNumber: 4, nameAcronym: "NOR", fullName: "Lando Norris", teamName: "McLaren" }
+    { driverNumber: 4, nameAcronym: "NOR", fullName: "Lando Norris", teamName: "McLaren" },
+    { driverNumber: 14, nameAcronym: "ALO", fullName: "Fernando Alonso", teamName: "Aston Martin" }
   ]),
   createPositionMessage(sessionA, 97, 1),
-  createPositionMessage(sessionB, 4, 2)
+  createPositionMessage(sessionB, 4, 2, "2026-06-12T12:01:00.000Z"),
+  createPositionMessage(sessionB, 4, 3, "2026-06-12T12:02:00.000Z"),
+  createPositionMessage(sessionB, 4, 9, "2026-06-12T12:01:30.000Z")
 ]);
 
 if (state.drivers.has("97")) {
   throw new Error("Reserve driver from previous session leaked into the new session driver state.");
 }
 
-if (!state.drivers.has("1") || !state.drivers.has("4") || state.drivers.size !== 2) {
+if (!state.drivers.has("1") || !state.drivers.has("4") || !state.drivers.has("14") || state.drivers.size !== 3) {
   throw new Error("Session B driver state does not contain only Session B drivers.");
 }
 
@@ -57,8 +60,35 @@ if (state.timing.drivers.some((driver) => driver.driverNumber === 97)) {
 
 const driversMessage = createDashboardMessageFromState(state, "openf1:drivers", recordedAt);
 
-if (driversMessage.type !== "drivers:update" || driversMessage.payload.drivers.length !== 2) {
+if (driversMessage.type !== "drivers:update" || driversMessage.payload.drivers.length !== 3) {
   throw new Error("Session B drivers:update did not contain the expected session-scoped driver list.");
+}
+
+const driverFour = state.timing.drivers.find((driver) => driver.driverNumber === 4);
+const driverFourMetadata = state.drivers.get("4");
+const driverFourPosition = driverFour?.position ?? driverFourMetadata?.position;
+
+if (driverFourPosition !== 3) {
+  throw new Error(`Expected latest driver 4 position to be 3, received ${driverFourPosition}.`);
+}
+
+const driverFourUpdatedAt = driverFour?.positionUpdatedAt ?? driverFourMetadata?.positionUpdatedAt;
+
+if (driverFourUpdatedAt !== "2026-06-12T12:02:00.000Z") {
+  throw new Error("Older position update replaced a newer driver 4 position.");
+}
+
+const driverFourDashboard = driversMessage.payload.drivers.find((driver) => driver.driverNumber === 4);
+const driverFourDashboardPosition = driverFourDashboard?.position;
+
+if (driverFourDashboardPosition !== 3) {
+  throw new Error("drivers:update did not include the latest known position for driver 4.");
+}
+
+const unpositionedDriver = driversMessage.payload.drivers.find((driver) => driver.driverNumber === 14);
+
+if (!unpositionedDriver || unpositionedDriver.position !== 0) {
+  throw new Error("Driver without position data was not preserved as an unpositioned session driver.");
 }
 
 console.log(
@@ -68,6 +98,7 @@ console.log(
     driverMetadataStatus: state.session.driverMetadataStatus,
     driverCount: state.drivers.size,
     timingRowCount: state.timing.drivers.length,
+    latestDriverFourPosition: driverFourPosition,
     previousReservePresent: state.drivers.has("97")
   })
 );
@@ -142,7 +173,12 @@ function createDriversMessage(
   };
 }
 
-function createPositionMessage(sessionKey: number, driverNumber: number, position: number): SourceMessage {
+function createPositionMessage(
+  sessionKey: number,
+  driverNumber: number,
+  position: number,
+  updatedAt = recordedAt
+): SourceMessage {
   return {
     type: "openf1:position",
     recordedAt,
@@ -157,7 +193,8 @@ function createPositionMessage(sessionKey: number, driverNumber: number, positio
       positions: [
         {
           driverNumber,
-          position
+          position,
+          updatedAt
         }
       ]
     }

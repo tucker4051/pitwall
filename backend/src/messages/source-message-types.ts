@@ -244,6 +244,7 @@ export type OpenF1InternalMeeting = {
 export type OpenF1InternalPosition = {
   readonly driverNumber: number;
   readonly position: number;
+  readonly updatedAt?: string;
 };
 
 export type OpenF1InternalTimingDriver = {

@@ -46,6 +46,7 @@ export type TimingDriver = {
   readonly nameAcronym?: string;
   readonly abbreviation: string;
   readonly position: number;
+  readonly positionUpdatedAt?: string;
   readonly fullName?: string;
   readonly broadcastName?: string;
   readonly teamName?: string;

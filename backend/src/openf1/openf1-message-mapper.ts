@@ -147,7 +147,8 @@ function mapPositionMessage(
         positions: [
           {
             driverNumber: payload.driver_number,
-            position: payload.position
+            position: payload.position,
+            updatedAt: readOptionalString(payload.date) ?? recordedAt
           }
         ]
       }

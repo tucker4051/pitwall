@@ -337,25 +337,25 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       const timingDrivers = state.timing.drivers
         .filter((timingDriver) => !shouldReplaceDriverList || drivers.has(String(timingDriver.driverNumber)))
         .map((timingDriver) => {
-        if (!timingDriver.driverNumber) {
-          return timingDriver;
-        }
+          if (!timingDriver.driverNumber) {
+            return timingDriver;
+          }
 
-        const driver = drivers.get(String(timingDriver.driverNumber));
+          const driver = drivers.get(String(timingDriver.driverNumber));
 
-        if (!driver) {
-          return timingDriver;
-        }
+          if (!driver) {
+            return timingDriver;
+          }
 
-        return {
-          ...timingDriver,
-          ...driver,
-          gapToLeader: timingDriver.gapToLeader,
-          intervalToAhead: timingDriver.intervalToAhead,
-          lastLapTime: timingDriver.lastLapTime,
-          bestLapTime: timingDriver.bestLapTime
-        };
-      });
+          return {
+            ...timingDriver,
+            ...driver,
+            gapToLeader: timingDriver.gapToLeader,
+            intervalToAhead: timingDriver.intervalToAhead,
+            lastLapTime: timingDriver.lastLapTime,
+            bestLapTime: timingDriver.bestLapTime
+          };
+        });
 
       return {
         ...state,
@@ -385,6 +385,18 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         const key = String(position.driverNumber);
         const existingDriver = drivers.get(key);
         const existingTimingDriver = findTimingDriver(timingDrivers, position.driverNumber);
+        const incomingPositionUpdatedAt = position.updatedAt ?? message.recordedAt;
+
+        if (!shouldApplyPositionUpdate(existingDriver, existingTimingDriver, incomingPositionUpdatedAt)) {
+          console.log("OpenF1 position update dropped because an equal or newer position exists.", {
+            driverNumber: position.driverNumber,
+            position: position.position,
+            sessionKey: message.metadata.sessionKey,
+            updatedAt: incomingPositionUpdatedAt
+          });
+          continue;
+        }
+
         const abbreviation = existingDriver?.abbreviation ?? existingTimingDriver?.abbreviation ?? String(position.driverNumber);
         const nextTimingDriver: TimingDriverState = {
           ...existingTimingDriver,
@@ -392,6 +404,7 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           driverNumber: position.driverNumber,
           abbreviation,
           position: position.position,
+          positionUpdatedAt: incomingPositionUpdatedAt,
           gapToLeader:
             position.position === 1
               ? "LEADER"
@@ -402,10 +415,18 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           ...existingDriver,
           driverNumber: position.driverNumber,
           abbreviation,
-          position: position.position
+          position: position.position,
+          positionUpdatedAt: incomingPositionUpdatedAt
         });
 
         upsertTimingDriver(timingDrivers, nextTimingDriver);
+
+        console.log("OpenF1 position update applied.", {
+          driverNumber: position.driverNumber,
+          position: position.position,
+          sessionKey: message.metadata.sessionKey,
+          updatedAt: incomingPositionUpdatedAt
+        });
       }
 
       logLiveMergeDiagnostics(message.type, message.payload.positions.map((position) => position.driverNumber), drivers.size, timingDrivers.length);
@@ -756,6 +777,27 @@ function upsertTimingDriver(timingDrivers: TimingDriverState[], nextTimingDriver
   }
 
   timingDrivers.push(nextTimingDriver);
+}
+
+function shouldApplyPositionUpdate(
+  existingDriver: DriverState | undefined,
+  existingTimingDriver: TimingDriverState | undefined,
+  incomingPositionUpdatedAt: string
+): boolean {
+  const existingPositionUpdatedAt = existingTimingDriver?.positionUpdatedAt ?? existingDriver?.positionUpdatedAt;
+
+  if (!existingPositionUpdatedAt) {
+    return true;
+  }
+
+  const existingMs = Date.parse(existingPositionUpdatedAt);
+  const incomingMs = Date.parse(incomingPositionUpdatedAt);
+
+  if (Number.isNaN(existingMs) || Number.isNaN(incomingMs)) {
+    return true;
+  }
+
+  return incomingMs >= existingMs;
 }
 
 function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonly TimingDriverState[] {
