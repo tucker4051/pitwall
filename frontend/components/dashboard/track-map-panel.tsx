@@ -1,4 +1,6 @@
+import { findDriverForPosition, getDriverIdentity } from "./driver-identity";
 import { normaliseCoordinate } from "./format";
+import { getTeamMarkerStyle } from "./team-colours";
 import type { TimingDriver, TrackPosition } from "./types";
 
 type TrackMapPanelProps = {
@@ -48,8 +50,10 @@ export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPa
         </svg>
 
         {visiblePositions.map((position) => {
-          const abbreviation = resolveAbbreviation(position, drivers);
+          const matchingDriver = findDriverForPosition(position.abbreviation, drivers);
+          const abbreviation = matchingDriver?.abbreviation ?? position.abbreviation;
           const selected = abbreviation === selectedDriver;
+          const identity = getDriverIdentity(matchingDriver);
 
           return (
             <div
@@ -63,9 +67,10 @@ export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPa
               <div
                 className={`flex h-7 min-w-9 items-center justify-center border px-2 font-mono text-[11px] font-black ${
                   selected
-                    ? "border-cyan-300 bg-cyan-300/15 text-cyan-100 ring-2 ring-cyan-300/40"
-                    : "border-slate-500 bg-[#101826] text-slate-200"
+                    ? "ring-2 ring-cyan-300/40"
+                    : ""
                 }`}
+                style={getTeamMarkerStyle(identity.teamProfile, selected)}
               >
                 {abbreviation}
               </div>
@@ -81,14 +86,4 @@ export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPa
       </div>
     </section>
   );
-}
-
-function resolveAbbreviation(position: TrackPosition, drivers: readonly TimingDriver[]): string {
-  const numericDriver = Number(position.abbreviation);
-
-  if (Number.isFinite(numericDriver)) {
-    return drivers.find((driver) => driver.driverNumber === numericDriver)?.abbreviation ?? position.abbreviation;
-  }
-
-  return position.abbreviation;
 }

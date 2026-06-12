@@ -1,4 +1,6 @@
+import { getDriverIdentity } from "./driver-identity";
 import { getCompoundClassName } from "./format";
+import { getTeamFocusAccentStyle, getTeamStripStyle } from "./team-colours";
 import type { TelemetrySnapshot, TimingDriver, TyreStint } from "./types";
 
 type DriverFocusPanelProps = {
@@ -8,6 +10,8 @@ type DriverFocusPanelProps = {
 };
 
 export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelProps) {
+  const identity = getDriverIdentity(driver);
+
   return (
     <section className="flex h-full min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
       <div className="flex h-10 items-center justify-between border-b border-slate-800 px-3">
@@ -16,10 +20,14 @@ export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelP
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
-        <div className="border-l-2 border-cyan-300 pl-3">
+        <div className="border-l-2 pl-3" style={getTeamFocusAccentStyle(identity.teamProfile)}>
+          <div className="mb-3 flex items-center gap-2">
+            <span className="h-4 w-1.5 border" style={getTeamStripStyle(identity.teamProfile)} />
+            <span className="font-mono text-[10px] uppercase text-slate-500">{identity.teamProfile.displayName}</span>
+          </div>
           <p className="font-mono text-5xl font-black text-slate-100">{driver?.abbreviation ?? "---"}</p>
           <p className="mt-1 text-xs uppercase text-slate-500">{driver?.fullName ?? "Selected driver"}</p>
-          <p className="text-xs uppercase text-slate-400">{driver?.teamName ?? "Team pending"}</p>
+          <p className="text-xs uppercase text-slate-400">{identity.teamName}</p>
         </div>
 
         <div className="grid grid-cols-3 border border-slate-800">

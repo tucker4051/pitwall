@@ -6,6 +6,7 @@ import { DebugPanel } from "./debug-panel";
 import { DriverFocusPanel } from "./driver-focus-panel";
 import { RaceContextPanel } from "./race-context-panel";
 import { TimingTowerPanel } from "./timing-tower-panel";
+import { buildTimingTowerRows } from "./timing-tower-data";
 import { TopStatusBar } from "./top-status-bar";
 import { TrackMapPanel } from "./track-map-panel";
 import type {
@@ -51,7 +52,7 @@ export function DashboardShell() {
   const webSocketUrl = useMemo(() => process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:3001/ws", []);
   const [dashboard, setDashboard] = useState<DashboardState>(INITIAL_DASHBOARD_STATE);
   const [socketStatus, setSocketStatus] = useState<ConnectionStatus>("connecting");
-  const [selectedDriver, setSelectedDriver] = useState("VER");
+  const [selectedDriverKey, setSelectedDriverKey] = useState("driver-1");
   const [debugMessages, setDebugMessages] = useState<readonly string[]>([]);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [now, setNow] = useState(0);
@@ -135,12 +136,19 @@ export function DashboardShell() {
     };
   }, [webSocketUrl]);
 
-  const visibleDrivers = mergeDrivers(dashboard.timing.drivers, dashboard.drivers);
-  const effectiveSelectedDriver = visibleDrivers.some((driver) => driver.abbreviation === selectedDriver)
-    ? selectedDriver
-    : (visibleDrivers[0]?.abbreviation ?? selectedDriver);
+  const timingTowerRowsResult = buildTimingTowerRows({
+    dataMode: dashboard.connection.dataMode,
+    session: dashboard.session,
+    connection: dashboard.connection,
+    drivers: dashboard.drivers,
+    timingDrivers: dashboard.timing.drivers
+  });
+  const visibleDrivers = timingTowerRowsResult.rows;
+  const effectiveSelectedDriverKey = visibleDrivers.some((driver) => driver.rowKey === selectedDriverKey)
+    ? selectedDriverKey
+    : (visibleDrivers[0]?.rowKey ?? selectedDriverKey);
   const selectedTimingDriver =
-    visibleDrivers.find((driver) => driver.abbreviation === effectiveSelectedDriver) ?? visibleDrivers[0] ?? null;
+    visibleDrivers.find((driver) => driver.rowKey === effectiveSelectedDriverKey) ?? visibleDrivers[0] ?? null;
   const selectedStint = selectedTimingDriver ? findStint(dashboard.stints, selectedTimingDriver) : null;
   const selectedTelemetry = selectedTimingDriver ? findTelemetry(dashboard.telemetry, selectedTimingDriver) : null;
 
@@ -152,10 +160,10 @@ export function DashboardShell() {
         <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(520px,1fr)_360px] gap-3 p-3">
           <div className="min-h-0">
             <TimingTowerPanel
-              drivers={visibleDrivers}
+              rowsResult={timingTowerRowsResult}
               stints={dashboard.stints}
-              selectedDriver={selectedTimingDriver?.abbreviation ?? effectiveSelectedDriver}
-              onSelectDriver={setSelectedDriver}
+              selectedDriverKey={selectedTimingDriver?.rowKey ?? effectiveSelectedDriverKey}
+              onSelectDriver={(driver) => setSelectedDriverKey(driver.rowKey)}
             />
           </div>
 
@@ -163,7 +171,7 @@ export function DashboardShell() {
             <TrackMapPanel
               positions={dashboard.trackPositions}
               drivers={visibleDrivers}
-              selectedDriver={selectedTimingDriver?.abbreviation ?? effectiveSelectedDriver}
+              selectedDriver={selectedTimingDriver?.abbreviation ?? ""}
             />
             <RaceContextPanel
               raceControlMessages={dashboard.raceControlMessages}
@@ -269,30 +277,6 @@ function formatMessage(data: unknown): string {
   } catch {
     return data;
   }
-}
-
-function mergeDrivers(timingDrivers: readonly TimingDriver[], drivers: readonly TimingDriver[]): readonly TimingDriver[] {
-  const timingDriverRows =
-    timingDrivers.length > 0
-      ? timingDrivers
-      : drivers.map((driver) => ({
-          ...driver,
-          gapToLeader: driver.position === 1 ? "LEADER" : "--",
-          intervalToAhead: "--"
-        }));
-
-  return timingDriverRows.map((timingDriver) => {
-    const matchingDriver =
-      drivers.find((driver) => driver.abbreviation === timingDriver.abbreviation) ??
-      drivers.find((driver) => driver.driverNumber && driver.driverNumber === timingDriver.driverNumber);
-
-    return {
-      ...matchingDriver,
-      ...timingDriver,
-      fullName: matchingDriver?.fullName ?? timingDriver.fullName,
-      teamName: matchingDriver?.teamName ?? timingDriver.teamName
-    };
-  });
 }
 
 function findStint(stints: readonly TyreStint[], driver: TimingDriver): TyreStint | null {
