@@ -13,7 +13,9 @@ let openF1Connector: OpenF1Connector | null = null;
 if (config.dataMode === "live") {
   const openF1Config = createOpenF1Config(config.openF1);
   const tokenManager = createOpenF1TokenManager(openF1Config);
-  openF1Connector = createOpenF1Connector(openF1Config, tokenManager);
+  openF1Connector = createOpenF1Connector(openF1Config, tokenManager, {
+    onSourceMessage: webSocketServer.processSourceMessage
+  });
 
   console.log("OpenF1 live mode configuration validated.", {
     mqttHost: openF1Config.mqtt.host,

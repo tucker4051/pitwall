@@ -8,8 +8,8 @@ type TopStatusBarProps = {
 };
 
 export function TopStatusBar({ dashboard, socketStatus, now }: TopStatusBarProps) {
-  const sessionName = dashboard.session.name ?? dashboard.connection.sessionName ?? "Mock Grand Prix";
-  const sessionType = dashboard.session.type ?? dashboard.connection.sessionType ?? "Race";
+  const sessionName = dashboard.session.name ?? dashboard.connection.sessionName ?? getFallbackSessionName(dashboard.connection.dataMode);
+  const sessionType = dashboard.session.type ?? dashboard.connection.sessionType ?? getFallbackSessionType(dashboard.connection.dataMode);
 
   return (
     <header className="grid h-16 shrink-0 grid-cols-[220px_1fr_auto] items-center border-b border-slate-800 bg-[#080b10] px-4">
@@ -38,6 +38,30 @@ export function TopStatusBar({ dashboard, socketStatus, now }: TopStatusBarProps
       </div>
     </header>
   );
+}
+
+function getFallbackSessionName(dataMode: DashboardState["connection"]["dataMode"]): string {
+  if (dataMode === "mock") {
+    return "Mock Grand Prix";
+  }
+
+  if (dataMode === "live") {
+    return "Waiting for live session";
+  }
+
+  return "Connecting to session";
+}
+
+function getFallbackSessionType(dataMode: DashboardState["connection"]["dataMode"]): string {
+  if (dataMode === "mock") {
+    return "Race";
+  }
+
+  if (dataMode === "live") {
+    return "Live mode";
+  }
+
+  return "Awaiting data mode";
 }
 
 function Metric({ label, value }: { readonly label: string; readonly value: string }) {

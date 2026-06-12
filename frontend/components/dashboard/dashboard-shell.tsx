@@ -24,7 +24,7 @@ const RECONNECT_DELAY_MS = 2_000;
 const INITIAL_DASHBOARD_STATE: DashboardState = {
   connection: {
     status: "disconnected",
-    dataMode: "mock",
+    dataMode: "unknown",
     sessionName: null,
     sessionType: null,
     lastUpdate: null,
@@ -172,12 +172,14 @@ export function DashboardShell() {
               positions={dashboard.trackPositions}
               drivers={visibleDrivers}
               selectedDriver={selectedTimingDriver?.abbreviation ?? ""}
+              dataMode={dashboard.connection.dataMode}
             />
             <RaceContextPanel
               raceControlMessages={dashboard.raceControlMessages}
               stints={dashboard.stints}
               weather={dashboard.weather}
               telemetry={dashboard.telemetry}
+              dataMode={dashboard.connection.dataMode}
             />
           </div>
 

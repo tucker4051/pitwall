@@ -20,6 +20,13 @@ export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelP
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
+        {!driver ? (
+          <div className="border border-slate-800 bg-[#090d13] px-3 py-4">
+            <p className="text-[11px] font-bold uppercase text-slate-300">Waiting for driver data</p>
+            <p className="mt-1 text-xs text-slate-500">Select a driver once live timing or driver metadata arrives.</p>
+          </div>
+        ) : null}
+
         <div className="border-l-2 pl-3" style={getTeamFocusAccentStyle(identity.teamProfile)}>
           <div className="mb-3 flex items-center gap-2">
             <span className="h-4 w-1.5 border" style={getTeamStripStyle(identity.teamProfile)} />

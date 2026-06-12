@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer } from "ws";
 
 import type { AppConfig } from "../config/env.js";
 import { routeSourceMessage } from "../messages/source-message-router.js";
+import type { SourceMessage } from "../messages/source-message-types.js";
 import { createMockSourceMessages } from "../mock/mock-messages.js";
 import { createInitialCurrentRaceState } from "../state/current-race-state.js";
 import {
@@ -18,13 +19,25 @@ type WebSocketServerOptions = {
   readonly dataMode: AppConfig["dataMode"];
 };
 
+export type PitWallWebSocketServer = WebSocketServer & {
+  readonly processSourceMessage: (sourceMessage: SourceMessage) => void;
+};
+
 const MOCK_MESSAGE_INTERVAL_MS = 2_500;
 const MOCK_STALE_CHECK_INTERVAL_MS = 500;
 const MOCK_STALE_PAUSE_AFTER_SEQUENCE = 2;
 const MOCK_STALE_PAUSE_MS = 5_500;
 
-export function attachWebSocketServer(server: Server, options: WebSocketServerOptions): WebSocketServer {
+export function attachWebSocketServer(server: Server, options: WebSocketServerOptions): PitWallWebSocketServer {
   const webSocketServer = new WebSocketServer({ noServer: true });
+  let currentRaceState = createInitialCurrentRaceState(options.dataMode);
+  const dashboardMessageScheduler = createDashboardMessageScheduler((message) => {
+    broadcastJson(webSocketServer, message);
+    console.log("Dashboard message emitted to WebSocket clients.", {
+      type: message.type,
+      clients: getOpenClientCount(webSocketServer)
+    });
+  });
 
   server.on("upgrade", (request, socket, head) => {
     const pathname = getRequestPathname(request.url);
@@ -40,17 +53,22 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
   });
 
   webSocketServer.on("connection", (webSocket) => {
-    console.log("WebSocket client connected.");
+    console.log("WebSocket client connected.", {
+      clients: getOpenClientCount(webSocketServer)
+    });
 
-    let stopMockMessages: (() => void) | undefined;
-
-    if (options.dataMode === "mock") {
-      stopMockMessages = startMockMessageStream(webSocket);
-    }
+    const connectionMessage = createConnectionDashboardMessage(currentRaceState, new Date().toISOString());
+    sendJson(webSocket, connectionMessage);
+    console.log("Initial connection dashboard message sent.", {
+      type: connectionMessage.type,
+      dataMode: options.dataMode,
+      clients: getOpenClientCount(webSocketServer)
+    });
 
     webSocket.on("close", () => {
-      stopMockMessages?.();
-      console.log("WebSocket client disconnected.");
+      console.log("WebSocket client disconnected.", {
+        clients: getOpenClientCount(webSocketServer)
+      });
     });
 
     webSocket.on("error", (error) => {
@@ -62,17 +80,66 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
     console.error("WebSocket server error.", error);
   });
 
-  return webSocketServer;
+  const processSourceMessage = (sourceMessage: SourceMessage): void => {
+    const routedMessage = routeSourceMessage(sourceMessage);
+
+    if (!routedMessage.routed) {
+      return;
+    }
+
+    console.log("Source message routed.", {
+      sourceType: routedMessage.message.type,
+      source: routedMessage.message.metadata?.source ?? "unknown"
+    });
+
+    currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
+    console.log("CurrentRaceState updated from source message.", {
+      sourceType: routedMessage.message.type,
+      dataMode: currentRaceState.connection.dataMode,
+      trackPositions: currentRaceState.trackPositions.size,
+      timingDrivers: currentRaceState.timing.drivers.length,
+      clients: getOpenClientCount(webSocketServer)
+    });
+
+    const dashboardMessage = createDashboardMessageFromState(
+      currentRaceState,
+      routedMessage.message.type,
+      new Date().toISOString()
+    );
+
+    console.log("Dashboard message scheduled.", {
+      sourceType: routedMessage.message.type,
+      dashboardType: dashboardMessage.type,
+      clients: getOpenClientCount(webSocketServer)
+    });
+
+    dashboardMessageScheduler.schedule(dashboardMessage);
+  };
+
+  if (options.dataMode === "mock") {
+    startMockMessageStream(processSourceMessage);
+  }
+
+  setInterval(() => {
+    const staleResult = markStateStaleIfNeeded(currentRaceState);
+
+    if (!staleResult.didChange) {
+      return;
+    }
+
+    currentRaceState = staleResult.state;
+    dashboardMessageScheduler.schedule(createConnectionDashboardMessage(currentRaceState, new Date().toISOString()));
+  }, MOCK_STALE_CHECK_INTERVAL_MS);
+
+  return Object.assign(webSocketServer, {
+    processSourceMessage
+  });
 }
 
-function startMockMessageStream(webSocket: WebSocket): () => void {
+function startMockMessageStream(processSourceMessage: (sourceMessage: SourceMessage) => void): void {
   let sequence = 0;
-  let currentRaceState = createInitialCurrentRaceState("mock");
   let stalePauseUntil = 0;
   let hasSimulatedStalePause = false;
-  const dashboardMessageScheduler = createDashboardMessageScheduler((message) => {
-    sendJson(webSocket, message);
-  });
 
   const sendMockMessages = () => {
     const now = Date.now();
@@ -89,40 +156,14 @@ function startMockMessageStream(webSocket: WebSocket): () => void {
     }
 
     for (const sourceMessage of createMockSourceMessages(sequence)) {
-      const routedMessage = routeSourceMessage(sourceMessage);
-
-      if (!routedMessage.routed) {
-        continue;
-      }
-
-      currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
-      dashboardMessageScheduler.schedule(
-        createDashboardMessageFromState(currentRaceState, routedMessage.message.type, new Date().toISOString())
-      );
+      processSourceMessage(sourceMessage);
     }
 
     sequence += 1;
   };
 
   sendMockMessages();
-
-  const mockMessageInterval = setInterval(sendMockMessages, MOCK_MESSAGE_INTERVAL_MS);
-  const staleCheckInterval = setInterval(() => {
-    const staleResult = markStateStaleIfNeeded(currentRaceState);
-
-    if (!staleResult.didChange) {
-      return;
-    }
-
-    currentRaceState = staleResult.state;
-    dashboardMessageScheduler.schedule(createConnectionDashboardMessage(currentRaceState, new Date().toISOString()));
-  }, MOCK_STALE_CHECK_INTERVAL_MS);
-
-  return () => {
-    clearInterval(mockMessageInterval);
-    clearInterval(staleCheckInterval);
-    dashboardMessageScheduler.stop();
-  };
+  setInterval(sendMockMessages, MOCK_MESSAGE_INTERVAL_MS);
 }
 
 function sendJson(webSocket: WebSocket, message: unknown): void {
@@ -131,6 +172,16 @@ function sendJson(webSocket: WebSocket, message: unknown): void {
   }
 
   webSocket.send(JSON.stringify(message));
+}
+
+function broadcastJson(webSocketServer: WebSocketServer, message: unknown): void {
+  for (const client of webSocketServer.clients) {
+    sendJson(client, message);
+  }
+}
+
+function getOpenClientCount(webSocketServer: WebSocketServer): number {
+  return Array.from(webSocketServer.clients).filter((client) => client.readyState === WebSocket.OPEN).length;
 }
 
 function getRequestPathname(url: string | undefined): string {

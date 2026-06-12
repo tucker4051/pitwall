@@ -1,6 +1,6 @@
 import mqtt, { type MqttClient } from "mqtt";
 
-import { routeSourceMessage } from "../messages/source-message-router.js";
+import type { SourceMessage } from "../messages/source-message-types.js";
 import type { OpenF1Config } from "./openf1-config.js";
 import { mapOpenF1Message } from "./openf1-message-mapper.js";
 import { createOpenF1MessageOrderTracker } from "./openf1-message-order.js";
@@ -11,7 +11,15 @@ export type OpenF1Connector = {
   readonly disconnect: () => Promise<void>;
 };
 
-export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1TokenManager): OpenF1Connector {
+export type OpenF1ConnectorOptions = {
+  readonly onSourceMessage?: (message: SourceMessage) => void;
+};
+
+export function createOpenF1Connector(
+  config: OpenF1Config,
+  tokenManager: OpenF1TokenManager,
+  options: OpenF1ConnectorOptions = {}
+): OpenF1Connector {
   let client: MqttClient | null = null;
   const messageOrderTracker = createOpenF1MessageOrderTracker();
 
@@ -89,15 +97,15 @@ export function createOpenF1Connector(config: OpenF1Config, tokenManager: OpenF1
           return;
         }
 
-        const routedMessage = routeSourceMessage(mappedMessage.message);
-
-        if (!routedMessage.routed) {
-          return;
-        }
-
         console.log("OpenF1 MQTT message mapped to internal source message.", {
           topic,
-          sourceType: routedMessage.message.type
+          sourceType: mappedMessage.message.type
+        });
+
+        options.onSourceMessage?.(mappedMessage.message);
+        console.log("OpenF1 source message handed to dashboard pipeline.", {
+          topic,
+          sourceType: mappedMessage.message.type
         });
       });
 

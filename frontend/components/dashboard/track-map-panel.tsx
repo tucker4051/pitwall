@@ -1,12 +1,13 @@
 import { findDriverForPosition, getDriverIdentity } from "./driver-identity";
 import { normaliseCoordinate } from "./format";
 import { getTeamMarkerStyle } from "./team-colours";
-import type { TimingDriver, TrackPosition } from "./types";
+import type { DashboardDataMode, TimingDriver, TrackPosition } from "./types";
 
 type TrackMapPanelProps = {
   readonly positions: readonly TrackPosition[];
   readonly drivers: readonly TimingDriver[];
   readonly selectedDriver: string;
+  readonly dataMode: DashboardDataMode;
 };
 
 const FALLBACK_POSITIONS: readonly TrackPosition[] = [
@@ -18,8 +19,8 @@ const FALLBACK_POSITIONS: readonly TrackPosition[] = [
   { abbreviation: "HAM", x: 82, y: 66, z: 0, updatedAt: "" }
 ];
 
-export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPanelProps) {
-  const visiblePositions = positions.length > 0 ? positions : FALLBACK_POSITIONS;
+export function TrackMapPanel({ positions, drivers, selectedDriver, dataMode }: TrackMapPanelProps) {
+  const visiblePositions = positions.length > 0 ? positions : dataMode === "mock" ? FALLBACK_POSITIONS : [];
 
   return (
     <section className="relative min-h-0 overflow-hidden border border-slate-800 bg-[#080d14]">
@@ -48,6 +49,8 @@ export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPa
           />
           <path d="M14 56 C13 24 40 12 64 21" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
         </svg>
+
+        {visiblePositions.length === 0 ? <TrackEmptyState dataMode={dataMode} /> : null}
 
         {visiblePositions.map((position) => {
           const matchingDriver = findDriverForPosition(position.abbreviation, drivers);
@@ -85,5 +88,18 @@ export function TrackMapPanel({ positions, drivers, selectedDriver }: TrackMapPa
         </div>
       </div>
     </section>
+  );
+}
+
+function TrackEmptyState({ dataMode }: { readonly dataMode: DashboardDataMode }) {
+  const message = dataMode === "live" ? "Waiting for live track positions" : "Waiting for dashboard data";
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="border border-slate-800 bg-[#0b1119]/90 px-4 py-3 text-center">
+        <p className="text-[11px] font-bold uppercase text-slate-300">{message}</p>
+        <p className="mt-1 text-xs text-slate-500">Driver markers will appear when location data arrives.</p>
+      </div>
+    </div>
   );
 }

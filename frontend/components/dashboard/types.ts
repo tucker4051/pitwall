@@ -1,8 +1,9 @@
 export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
+export type DashboardDataMode = "unknown" | "mock" | "live";
 
 export type ConnectionState = {
   readonly status: string;
-  readonly dataMode: "mock" | "live";
+  readonly dataMode: DashboardDataMode;
   readonly sessionName: string | null;
   readonly sessionType: string | null;
   readonly lastUpdate: string | null;

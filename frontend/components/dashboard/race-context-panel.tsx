@@ -1,11 +1,12 @@
 import { formatTime, getCompoundClassName } from "./format";
-import type { RaceControlMessage, TelemetrySnapshot, TyreStint, WeatherState } from "./types";
+import type { DashboardDataMode, RaceControlMessage, TelemetrySnapshot, TyreStint, WeatherState } from "./types";
 
 type RaceContextPanelProps = {
   readonly raceControlMessages: readonly RaceControlMessage[];
   readonly stints: readonly TyreStint[];
   readonly weather: WeatherState | null;
   readonly telemetry: readonly TelemetrySnapshot[];
+  readonly dataMode: DashboardDataMode;
 };
 
 const FALLBACK_MESSAGES: readonly RaceControlMessage[] = [
@@ -19,8 +20,8 @@ const FALLBACK_MESSAGES: readonly RaceControlMessage[] = [
 
 const contextGridClassName = "grid-cols-[minmax(260px,1.35fr)_minmax(170px,0.9fr)_minmax(190px,1fr)_minmax(190px,1fr)]";
 
-export function RaceContextPanel({ raceControlMessages, stints, weather, telemetry }: RaceContextPanelProps) {
-  const visibleMessages = raceControlMessages.length > 0 ? raceControlMessages : FALLBACK_MESSAGES;
+export function RaceContextPanel({ raceControlMessages, stints, weather, telemetry, dataMode }: RaceContextPanelProps) {
+  const visibleMessages = raceControlMessages.length > 0 ? raceControlMessages : dataMode === "mock" ? FALLBACK_MESSAGES : [];
 
   return (
     <section className="flex min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
@@ -33,6 +34,7 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
 
       <div className={`grid min-h-0 flex-1 ${contextGridClassName} gap-0 overflow-hidden`}>
         <div className="min-w-0 overflow-auto border-r border-slate-800">
+          {visibleMessages.length === 0 ? <Empty label="No race-control messages yet" /> : null}
           {visibleMessages.slice(0, 7).map((message) => (
             <div key={message.id} className="grid grid-cols-[72px_72px_1fr] border-b border-slate-900 px-3 py-2 text-xs">
               <span className="font-mono text-slate-500">{formatTime(message.receivedAt)}</span>
@@ -56,7 +58,7 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
                 <span className="text-right font-mono text-slate-300">{stint.stintAgeLaps}L</span>
               </div>
             ))}
-            {stints.length === 0 ? <Empty label="No stint data" /> : null}
+            {stints.length === 0 ? <Empty label="No stint data yet" /> : null}
           </div>
         </div>
 
@@ -70,6 +72,7 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
             <WeatherMetric label="Wind" value={weather ? `${weather.windSpeed}` : "--"} />
             <WeatherMetric label="Dir" value={weather ? `${weather.windDirection}` : "--"} />
           </div>
+          {weather ? null : <div className="mt-2"><Empty label="No weather data yet" /></div>}
         </div>
 
         <div className="min-h-0 overflow-auto p-3">
@@ -84,7 +87,7 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
                 <span className="text-right font-mono text-slate-300">{snapshot.speed}</span>
               </div>
             ))}
-            {telemetry.length === 0 ? <Empty label="No telemetry" /> : null}
+            {telemetry.length === 0 ? <Empty label="No telemetry yet" /> : null}
           </div>
         </div>
       </div>
