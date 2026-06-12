@@ -11,10 +11,26 @@ export type OpenF1InternalSession = {
   readonly dateEnd?: string;
 };
 
+export type OpenF1RestLap = {
+  readonly driverNumber: number;
+  readonly lapNumber?: number;
+  readonly lapDuration?: number;
+  readonly dateStart?: string;
+};
+
+export type OpenF1RestInterval = {
+  readonly driverNumber: number;
+  readonly interval?: string;
+  readonly gapToLeader?: string;
+  readonly date?: string;
+};
+
 export type OpenF1RestClient = {
   readonly fetchMeetingsForYear: (year: number) => Promise<readonly OpenF1InternalMeeting[]>;
   readonly fetchSessionsForMeeting: (meetingKey: number) => Promise<readonly OpenF1InternalSession[]>;
   readonly fetchDriversForSession: (sessionKey: string | number) => Promise<readonly OpenF1InternalDriver[]>;
+  readonly fetchLapsForSession: (sessionKey: string | number) => Promise<readonly OpenF1RestLap[]>;
+  readonly fetchIntervalsForSession: (sessionKey: string | number) => Promise<readonly OpenF1RestInterval[]>;
 };
 
 export function createOpenF1RestClient(config: OpenF1Config, tokenManager: OpenF1TokenManager): OpenF1RestClient {
@@ -32,6 +48,16 @@ export function createOpenF1RestClient(config: OpenF1Config, tokenManager: OpenF
     async fetchDriversForSession(sessionKey: string | number): Promise<readonly OpenF1InternalDriver[]> {
       const value = await fetchOpenF1Json(config, tokenManager, "drivers", { session_key: String(sessionKey) });
       return parseOpenF1Drivers(value);
+    },
+
+    async fetchLapsForSession(sessionKey: string | number): Promise<readonly OpenF1RestLap[]> {
+      const value = await fetchOpenF1Json(config, tokenManager, "laps", { session_key: String(sessionKey) });
+      return parseOpenF1Laps(value);
+    },
+
+    async fetchIntervalsForSession(sessionKey: string | number): Promise<readonly OpenF1RestInterval[]> {
+      const value = await fetchOpenF1Json(config, tokenManager, "intervals", { session_key: String(sessionKey) });
+      return parseOpenF1Intervals(value);
     }
   };
 }
@@ -58,6 +84,22 @@ export function parseOpenF1Drivers(value: unknown): readonly OpenF1InternalDrive
   }
 
   return value.map(parseOpenF1Driver).filter((driver): driver is OpenF1InternalDriver => driver !== null);
+}
+
+export function parseOpenF1Laps(value: unknown): readonly OpenF1RestLap[] {
+  if (!Array.isArray(value)) {
+    throw new Error("OpenF1 laps response must be an array.");
+  }
+
+  return value.map(parseOpenF1Lap).filter((lap): lap is OpenF1RestLap => lap !== null);
+}
+
+export function parseOpenF1Intervals(value: unknown): readonly OpenF1RestInterval[] {
+  if (!Array.isArray(value)) {
+    throw new Error("OpenF1 intervals response must be an array.");
+  }
+
+  return value.map(parseOpenF1Interval).filter((interval): interval is OpenF1RestInterval => interval !== null);
 }
 
 async function fetchOpenF1Json(
@@ -145,6 +187,32 @@ function parseOpenF1Driver(value: unknown): OpenF1InternalDriver | null {
   };
 }
 
+function parseOpenF1Lap(value: unknown): OpenF1RestLap | null {
+  if (!isRecord(value) || !isNumber(value.driver_number)) {
+    return null;
+  }
+
+  return {
+    driverNumber: value.driver_number,
+    lapNumber: readOptionalNumber(value.lap_number),
+    lapDuration: readOptionalNumber(value.lap_duration),
+    dateStart: readOptionalString(value.date_start)
+  };
+}
+
+function parseOpenF1Interval(value: unknown): OpenF1RestInterval | null {
+  if (!isRecord(value) || !isNumber(value.driver_number)) {
+    return null;
+  }
+
+  return {
+    driverNumber: value.driver_number,
+    interval: formatInterval(value.interval),
+    gapToLeader: formatInterval(value.gap_to_leader),
+    date: readOptionalString(value.date)
+  };
+}
+
 function createOpenF1RestUrl(
   restBaseUrl: string,
   path: string,
@@ -214,4 +282,16 @@ function isString(value: unknown): value is string {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function formatInterval(value: unknown): string | undefined {
+  if (typeof value === "string" && value.length > 0) {
+    return value;
+  }
+
+  if (!isNumber(value)) {
+    return undefined;
+  }
+
+  return value === 0 ? "LEADER" : `+${value.toFixed(3)}`;
 }

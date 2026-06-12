@@ -5,6 +5,7 @@ import {
   type OpenF1InternalSession,
   type OpenF1RestClient
 } from "./openf1-rest-client.js";
+import { createOpenF1TimingSeeder } from "./openf1-timing-seed.js";
 import type { OpenF1TokenManager } from "./openf1-token-manager.js";
 
 export type OpenF1ContextBootstrap = {
@@ -23,6 +24,7 @@ export function createOpenF1ContextBootstrap(
   options: OpenF1ContextBootstrapOptions = {}
 ): OpenF1ContextBootstrap {
   const restClient = createOpenF1RestClient(config, tokenManager);
+  const timingSeeder = createOpenF1TimingSeeder(restClient);
   let inFlight = false;
   let completed = false;
 
@@ -35,7 +37,7 @@ export function createOpenF1ContextBootstrap(
       inFlight = true;
 
       try {
-        await bootstrapOpenF1Context(restClient, options);
+        await bootstrapOpenF1Context(restClient, timingSeeder, options);
         completed = true;
       } finally {
         inFlight = false;
@@ -46,6 +48,7 @@ export function createOpenF1ContextBootstrap(
 
 async function bootstrapOpenF1Context(
   restClient: OpenF1RestClient,
+  timingSeeder: ReturnType<typeof createOpenF1TimingSeeder>,
   options: OpenF1ContextBootstrapOptions
 ): Promise<void> {
   const now = new Date();
@@ -133,6 +136,12 @@ async function bootstrapOpenF1Context(
     sessionKey: session.sessionKey,
     driverCount: drivers.length
   });
+
+  const timingSeedMessage = await timingSeeder.seedSessionTiming(meeting.meetingKey, session);
+
+  if (timingSeedMessage) {
+    options.onSourceMessage?.(timingSeedMessage);
+  }
 }
 
 async function fetchCurrentOrLatestMeeting(restClient: OpenF1RestClient, now: Date) {
