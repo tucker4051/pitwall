@@ -22,7 +22,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         session: {
           ...state.session,
           name: message.payload.sessionName,
-          type: message.payload.sessionType
+          type: message.payload.sessionType,
+          driverMetadataStatus: "ready"
         }
       };
 
@@ -50,19 +51,36 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         }
       };
 
-    case "openf1:session":
+    case "openf1:session": {
+      const nextSessionKey = message.payload.sessionKey ?? state.session.sessionKey;
+      const sessionKeyChanged = Boolean(
+        nextSessionKey !== null &&
+        nextSessionKey !== undefined &&
+        state.session.sessionKey !== nextSessionKey
+      );
+      const baseState = sessionKeyChanged ? resetSessionScopedState(state) : state;
+
+      if (sessionKeyChanged) {
+        console.log("OpenF1 session transition detected. Session-scoped state reset.", {
+          previousSessionKey: state.session.sessionKey,
+          nextSessionKey
+        });
+      }
+
       return {
-        ...state,
+        ...baseState,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
         session: {
-          meetingKey: message.payload.meetingKey ?? state.session.meetingKey,
-          sessionKey: message.payload.sessionKey ?? state.session.sessionKey,
+          meetingKey: message.payload.meetingKey ?? baseState.session.meetingKey,
+          sessionKey: nextSessionKey,
           name: message.payload.sessionName,
           type: message.payload.sessionType,
-          dateStart: message.payload.dateStart ?? state.session.dateStart,
-          dateEnd: message.payload.dateEnd ?? state.session.dateEnd
+          dateStart: message.payload.dateStart ?? baseState.session.dateStart,
+          dateEnd: message.payload.dateEnd ?? baseState.session.dateEnd,
+          driverMetadataStatus: nextSessionKey ? "loading" : "idle"
         }
       };
+    }
 
     case "mock:timing": {
       const drivers = new Map<string, DriverState>();
@@ -119,6 +137,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:location": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const trackPositions = new Map(state.trackPositions);
 
       for (const position of message.payload.positions) {
@@ -170,6 +193,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:telemetry": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const telemetry = new Map(state.telemetry);
 
       for (const snapshot of message.payload.snapshots) {
@@ -211,6 +239,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:tyre-stint": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const tyreStints = new Map(state.tyreStints);
 
       for (const stint of message.payload.stints) {
@@ -238,6 +271,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:pit": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const tyreStints = new Map(state.tyreStints);
 
       for (const stint of message.payload.stints) {
@@ -266,7 +304,18 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:drivers": {
-      const drivers = new Map(state.drivers);
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
+      const incomingSessionKey = normalizeMetadataKey(message.metadata.sessionKey);
+      const shouldReplaceDriverList = Boolean(
+        incomingSessionKey !== null &&
+        state.session.sessionKey !== null &&
+        incomingSessionKey === state.session.sessionKey
+      );
+      const drivers = shouldReplaceDriverList ? new Map<string, DriverState>() : new Map(state.drivers);
 
       for (const driver of message.payload.drivers) {
         const key = String(driver.driverNumber);
@@ -285,7 +334,9 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         });
       }
 
-      const timingDrivers = state.timing.drivers.map((timingDriver) => {
+      const timingDrivers = state.timing.drivers
+        .filter((timingDriver) => !shouldReplaceDriverList || drivers.has(String(timingDriver.driverNumber)))
+        .map((timingDriver) => {
         if (!timingDriver.driverNumber) {
           return timingDriver;
         }
@@ -309,6 +360,10 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       return {
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
+        session: {
+          ...state.session,
+          driverMetadataStatus: "ready"
+        },
         drivers,
         timing: {
           ...state.timing,
@@ -318,6 +373,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:position": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const drivers = new Map(state.drivers);
       const timingDrivers = [...state.timing.drivers];
 
@@ -362,6 +422,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:timing": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const drivers = new Map(state.drivers);
       const timingDrivers = [...state.timing.drivers];
 
@@ -406,6 +471,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:race-control": {
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       const nextMessages = mergeRaceControlMessages(
         state.raceControlMessages,
         message.payload.messages.map((raceControlMessage) => ({
@@ -422,6 +492,11 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
     }
 
     case "openf1:weather":
+      if (isMessageForDifferentSession(state, message)) {
+        logDroppedSessionScopedMessage(state, message);
+        return state;
+      }
+
       return {
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
@@ -580,6 +655,72 @@ function createFreshConnectionState(connection: ConnectionState, receivedAt: str
     lastMessageReceivedAt: receivedAt,
     isStale: false
   };
+}
+
+function resetSessionScopedState(state: CurrentRaceState): CurrentRaceState {
+  return {
+    ...state,
+    drivers: new Map(),
+    timing: {
+      lap: null,
+      drivers: []
+    },
+    trackPositions: new Map(),
+    weather: null,
+    telemetry: new Map(),
+    tyreStints: new Map(),
+    raceControlMessages: []
+  };
+}
+
+function isMessageForDifferentSession(state: CurrentRaceState, message: SourceMessage): boolean {
+  if (message.metadata?.source !== "openf1") {
+    return false;
+  }
+
+  if (!isSessionScopedOpenF1Message(message.type)) {
+    return false;
+  }
+
+  const currentSessionKey = state.session.sessionKey;
+  const messageSessionKey = normalizeMetadataKey(message.metadata.sessionKey);
+
+  return currentSessionKey !== null && messageSessionKey !== null && messageSessionKey !== currentSessionKey;
+}
+
+function isSessionScopedOpenF1Message(type: SourceMessage["type"]): boolean {
+  return (
+    type === "openf1:drivers" ||
+    type === "openf1:position" ||
+    type === "openf1:timing" ||
+    type === "openf1:location" ||
+    type === "openf1:race-control" ||
+    type === "openf1:pit" ||
+    type === "openf1:telemetry" ||
+    type === "openf1:tyre-stint" ||
+    type === "openf1:weather"
+  );
+}
+
+function normalizeMetadataKey(value: string | number | undefined): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string" || value.length === 0) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function logDroppedSessionScopedMessage(state: CurrentRaceState, message: SourceMessage): void {
+  console.warn("OpenF1 session-scoped message dropped for non-current session.", {
+    sourceType: message.type,
+    selectedSessionKey: state.session.sessionKey,
+    messageSessionKey: message.metadata?.sessionKey
+  });
 }
 
 function mergeRaceControlMessages(

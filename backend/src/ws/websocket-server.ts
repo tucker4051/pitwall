@@ -94,7 +94,9 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
       source: routedMessage.message.metadata?.source ?? "unknown"
     });
 
-    logOpenF1ContextMismatch(currentRaceState, routedMessage.message);
+    if (shouldDropOpenF1ContextMismatch(currentRaceState, routedMessage.message)) {
+      return;
+    }
 
     currentRaceState = applyMockMessageToState(currentRaceState, routedMessage.message);
     console.log("CurrentRaceState updated from source message.", {
@@ -178,12 +180,16 @@ function sendInitialDashboardSnapshot(
   }
 }
 
-function logOpenF1ContextMismatch(
+function shouldDropOpenF1ContextMismatch(
   currentRaceState: Parameters<typeof createConnectionDashboardMessage>[0],
   sourceMessage: SourceMessage
-): void {
+): boolean {
   if (sourceMessage.metadata?.source !== "openf1") {
-    return;
+    return false;
+  }
+
+  if (!isSessionScopedOpenF1Message(sourceMessage.type)) {
+    return false;
   }
 
   const messageMeetingKey = normalizeMetadataKey(sourceMessage.metadata.meetingKey);
@@ -197,15 +203,33 @@ function logOpenF1ContextMismatch(
       messageMeetingKey,
       selectedMeetingKey: currentMeetingKey
     });
+    return true;
   }
 
   if (currentSessionKey && messageSessionKey && messageSessionKey !== currentSessionKey) {
-    console.warn("OpenF1 source session_key differs from selected context.", {
+    console.warn("OpenF1 source session_key differs from selected context. Dropping session-scoped message.", {
       sourceType: sourceMessage.type,
       messageSessionKey,
       selectedSessionKey: currentSessionKey
     });
+    return true;
   }
+
+  return false;
+}
+
+function isSessionScopedOpenF1Message(type: SourceMessage["type"]): boolean {
+  return (
+    type === "openf1:drivers" ||
+    type === "openf1:position" ||
+    type === "openf1:timing" ||
+    type === "openf1:location" ||
+    type === "openf1:race-control" ||
+    type === "openf1:pit" ||
+    type === "openf1:telemetry" ||
+    type === "openf1:tyre-stint" ||
+    type === "openf1:weather"
+  );
 }
 
 function normalizeMetadataKey(value: string | number | undefined): number | null {

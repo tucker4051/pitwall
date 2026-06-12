@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate:openf1-fixtures": "tsx test/openf1-mapper-probe.ts",
     "validate:incremental-live-state": "tsx test/incremental-live-state-probe.ts",
+    "validate:session-scoped-state": "tsx test/session-scoped-state-probe.ts",
     "validate:pipeline-stabilization": "tsx test/pipeline-stabilization-probe.ts"
   },
   "engines": {

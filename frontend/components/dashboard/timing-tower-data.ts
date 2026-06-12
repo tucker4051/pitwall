@@ -1,4 +1,4 @@
-import type { ConnectionState, SessionState, TimingDriver } from "./types";
+import type { ConnectionState, MeetingState, SessionState, TimingDriver } from "./types";
 
 export type TimingTowerRow = TimingDriver & {
   readonly rowKey: string;
@@ -9,11 +9,17 @@ export type TimingTowerRow = TimingDriver & {
 
 export type TimingTowerRowsResult = {
   readonly rows: readonly TimingTowerRow[];
-  readonly emptyState: "no-active-session" | "waiting-for-driver-data" | null;
+  readonly emptyState:
+    | "no-active-meeting"
+    | "no-live-session"
+    | "loading-session-drivers"
+    | "waiting-for-driver-metadata"
+    | null;
 };
 
 type BuildTimingTowerRowsInput = {
   readonly dataMode: ConnectionState["dataMode"];
+  readonly meeting: MeetingState;
   readonly session: SessionState;
   readonly connection: ConnectionState;
   readonly drivers: readonly TimingDriver[];
@@ -47,6 +53,7 @@ export const mockTimingTowerDrivers: readonly TimingDriver[] = [
 
 export function buildTimingTowerRows({
   dataMode,
+  meeting,
   session,
   connection,
   drivers,
@@ -68,11 +75,30 @@ export function buildTimingTowerRows({
     };
   }
 
-  const hasSession = Boolean(session.name ?? session.type ?? connection.sessionName ?? connection.sessionType);
+  if (!meeting.meetingKey) {
+    return {
+      rows: [],
+      emptyState: "no-active-meeting"
+    };
+  }
+
+  if (!session.sessionKey && !session.name && !session.type && !connection.sessionName && !connection.sessionType) {
+    return {
+      rows: [],
+      emptyState: "no-live-session"
+    };
+  }
+
+  if (session.driverMetadataStatus === "loading") {
+    return {
+      rows: [],
+      emptyState: "loading-session-drivers"
+    };
+  }
 
   return {
     rows: [],
-    emptyState: hasSession ? "waiting-for-driver-data" : "no-active-session"
+    emptyState: "waiting-for-driver-metadata"
   };
 }
 

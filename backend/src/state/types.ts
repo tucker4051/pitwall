@@ -14,6 +14,7 @@ export type SessionState = {
   readonly type: "Race" | "Qualifying" | "Practice" | null;
   readonly dateStart: string | null;
   readonly dateEnd: string | null;
+  readonly driverMetadataStatus: "idle" | "loading" | "ready" | "error";
 };
 
 export type MeetingState = {

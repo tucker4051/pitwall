@@ -55,11 +55,7 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
 }
 
 function TimingTowerEmptyState({ emptyState }: { readonly emptyState: TimingTowerRowsResult["emptyState"] }) {
-  const title = emptyState === "waiting-for-driver-data" ? "Waiting for driver data" : "No active session";
-  const detail =
-    emptyState === "waiting-for-driver-data"
-      ? "Session detected. Timing tower will populate when driver records arrive."
-      : "Live mode is connected, but no current session drivers are available.";
+  const { title, detail } = getEmptyStateCopy(emptyState);
 
   return (
     <div className="m-3 border border-slate-800 bg-[#090d13] px-3 py-4">
@@ -67,6 +63,35 @@ function TimingTowerEmptyState({ emptyState }: { readonly emptyState: TimingTowe
       <p className="mt-1 text-xs text-slate-500">{detail}</p>
     </div>
   );
+}
+
+function getEmptyStateCopy(emptyState: TimingTowerRowsResult["emptyState"]): {
+  readonly title: string;
+  readonly detail: string;
+} {
+  switch (emptyState) {
+    case "no-active-meeting":
+      return {
+        title: "No active Grand Prix weekend",
+        detail: "Waiting for OpenF1 meeting context."
+      };
+    case "no-live-session":
+      return {
+        title: "No live session currently taking place",
+        detail: "Meeting context is available. Timing tower will populate when a session starts."
+      };
+    case "loading-session-drivers":
+      return {
+        title: "Loading session drivers",
+        detail: "Session changed. Previous session rows have been cleared."
+      };
+    case "waiting-for-driver-metadata":
+    case null:
+      return {
+        title: "Waiting for driver metadata",
+        detail: "Session detected. Timing tower will populate when driver records arrive."
+      };
+  }
 }
 
 function MetadataPendingNote({ count }: { readonly count: number }) {

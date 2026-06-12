@@ -56,7 +56,8 @@ const INITIAL_DASHBOARD_STATE: DashboardState = {
     name: null,
     type: null,
     dateStart: null,
-    dateEnd: null
+    dateEnd: null,
+    driverMetadataStatus: "idle"
   },
   timing: {
     lap: null,
@@ -160,6 +161,7 @@ export function DashboardShell() {
 
   const timingTowerRowsResult = buildTimingTowerRows({
     dataMode: dashboard.connection.dataMode,
+    meeting: dashboard.meeting,
     session: dashboard.session,
     connection: dashboard.connection,
     drivers: dashboard.drivers,
@@ -235,6 +237,27 @@ function reduceDashboardMessage(dashboard: DashboardState, message: DashboardMes
         meeting: message.payload
       };
     case "session:update":
+      if (
+        dashboard.session.sessionKey !== null &&
+        message.payload.sessionKey !== null &&
+        dashboard.session.sessionKey !== message.payload.sessionKey
+      ) {
+        return {
+          ...dashboard,
+          session: message.payload,
+          timing: {
+            lap: null,
+            drivers: []
+          },
+          drivers: [],
+          raceControlMessages: [],
+          trackPositions: [],
+          weather: null,
+          telemetry: [],
+          stints: []
+        };
+      }
+
       return {
         ...dashboard,
         session: message.payload
