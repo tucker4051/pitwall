@@ -122,7 +122,7 @@ function buildDriverMarkers(
       }
 
       const teamProfile = getTeamColourProfile(entry.driver.teamName);
-      const markerColour = normaliseHexColour(entry.driver.teamColour) ?? teamProfile.primary ?? FALLBACK_MARKER_COLOUR;
+      const markerColour = resolveMarkerColour(entry.driver.teamColour, teamProfile.primary);
       const isSelected = Boolean(selectedDriverNumber && entry.driver.driverNumber === selectedDriverNumber);
 
       return {
@@ -160,10 +160,13 @@ function normaliseHexColour(value: string | null | undefined): string | null {
     return null;
   }
 
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(/^#/, "");
 
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) {
-    return trimmed;
+  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
+    return `#${trimmed
+      .split("")
+      .map((character) => `${character}${character}`)
+      .join("")}`;
   }
 
   if (/^[0-9a-f]{6}$/i.test(trimmed)) {
@@ -171,4 +174,8 @@ function normaliseHexColour(value: string | null | undefined): string | null {
   }
 
   return null;
+}
+
+function resolveMarkerColour(driverTeamColour: string | null | undefined, fallbackTeamColour: string | null | undefined): string {
+  return normaliseHexColour(driverTeamColour) ?? normaliseHexColour(fallbackTeamColour) ?? FALLBACK_MARKER_COLOUR;
 }

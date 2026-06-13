@@ -105,6 +105,7 @@ export const OPENF1_FIXTURE_MESSAGES = [
       session_key: 9999,
       category: "Flag",
       flag: "GREEN",
+      qualifying_phase: 1,
       message: "GREEN LIGHT - PIT EXIT OPEN"
     }
   },

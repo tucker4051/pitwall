@@ -40,7 +40,8 @@ export function createInitialCurrentRaceState(
       type: null,
       dateStart: null,
       dateEnd: null,
-      driverMetadataStatus: "idle"
+      driverMetadataStatus: "idle",
+      qualifyingPhase: null
     },
     drivers: new Map(),
     timing: {

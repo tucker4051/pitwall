@@ -140,7 +140,8 @@ function validateRaceControlMessage(message: Record<string, unknown>): SourceMes
       isRecord(raceControlMessage) &&
       isString(raceControlMessage.id) &&
       (raceControlMessage.category === "session" || raceControlMessage.category === "flag") &&
-      isString(raceControlMessage.message)
+      isString(raceControlMessage.message) &&
+      optionalQualifyingPhase(raceControlMessage.qualifyingPhase)
   );
 
   return messagesAreValid
@@ -357,6 +358,10 @@ function optionalNumber(value: unknown): boolean {
 
 function optionalBoolean(value: unknown): boolean {
   return value === null || value === undefined || typeof value === "boolean";
+}
+
+function optionalQualifyingPhase(value: unknown): boolean {
+  return value === null || value === undefined || value === 1 || value === 2 || value === 3;
 }
 
 function isOpenF1SessionType(value: unknown): boolean {

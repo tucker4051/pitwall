@@ -261,12 +261,25 @@ function mapRaceControlMessage(
           {
             id: readMessageIdentity(payload) ?? `openf1-race-control-${recordedAt}`,
             category,
-            message: payload.message
+            message: payload.message,
+            qualifyingPhase: readQualifyingPhase(payload.qualifying_phase)
           }
         ]
       }
     }
   };
+}
+
+function readQualifyingPhase(value: unknown): 1 | 2 | 3 | undefined {
+  if (value === 1 || value === 2 || value === 3) {
+    return value;
+  }
+
+  if (value === "1" || value === "2" || value === "3") {
+    return Number(value) as 1 | 2 | 3;
+  }
+
+  return undefined;
 }
 
 function mapLocationMessage(

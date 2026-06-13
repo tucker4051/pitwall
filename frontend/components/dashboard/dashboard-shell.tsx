@@ -57,7 +57,8 @@ const INITIAL_DASHBOARD_STATE: DashboardState = {
     type: null,
     dateStart: null,
     dateEnd: null,
-    driverMetadataStatus: "idle"
+    driverMetadataStatus: "idle",
+    qualifyingPhase: null
   },
   timing: {
     lap: null,
@@ -285,6 +286,10 @@ function reduceDashboardMessage(dashboard: DashboardState, message: DashboardMes
     case "race-control:update":
       return {
         ...dashboard,
+        session: {
+          ...dashboard.session,
+          qualifyingPhase: message.payload.qualifyingPhase
+        },
         raceControlMessages: message.payload.messages
       };
     case "track:update":

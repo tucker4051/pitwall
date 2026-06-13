@@ -25,9 +25,8 @@ const contextGridClassName = "grid-cols-[minmax(360px,2fr)_minmax(190px,1fr)_min
 
 export function RaceContextPanel({ raceControlMessages, weather, meeting, session, lap, driverCount, dataMode, now }: RaceContextPanelProps) {
   const visibleMessages = raceControlMessages.length > 0 ? raceControlMessages : dataMode === "mock" ? FALLBACK_MESSAGES : [];
-  const sessionClass = classifySessionType(session.type);
+  const sessionClass = classifySessionType(session.type, session.name);
   const sessionStatus = getSessionStatus(session.dateStart, session.dateEnd, now);
-  const sessionTimeContext = getSessionTimeContext(session.dateEnd, now);
 
   return (
     <section className="flex min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
@@ -69,11 +68,8 @@ export function RaceContextPanel({ raceControlMessages, weather, meeting, sessio
           <div className="mt-2 space-y-1.5">
             <InfoRow label="Type" value={session.name ?? session.type ?? "--"} />
             <InfoRow label="Status" value={sessionStatus} />
-            {sessionClass === "race" ? (
-              <InfoRow label="Lap" value={lap ? formatNumber(lap) : "--"} />
-            ) : (
-              <InfoRow label="Time Left" value={sessionTimeContext} />
-            )}
+            {sessionClass === "qualifying" ? <InfoRow label="Phase" value={formatQualifyingPhase(session.qualifyingPhase)} /> : null}
+            {sessionClass === "race" ? <InfoRow label="Lap" value={lap ? formatNumber(lap) : "--"} /> : null}
             <InfoRow label="Cars" value={driverCount > 0 ? formatNumber(driverCount) : "--"} />
             <InfoRow label="Circuit" value={meeting.circuitShortName ?? "--"} />
           </div>
@@ -117,24 +113,32 @@ function Empty({ label }: { readonly label: string }) {
   return <p className="border border-slate-800 bg-[#090d13] px-2 py-2 text-xs text-slate-500">{label}</p>;
 }
 
-type SessionClass = "race" | "timed" | "unknown";
+type SessionClass = "race" | "qualifying" | "timed" | "unknown";
 
-function classifySessionType(sessionType: string | null | undefined): SessionClass {
-  if (!sessionType) {
+function classifySessionType(sessionType: string | null | undefined, sessionName: string | null | undefined): SessionClass {
+  const labels = [sessionType, sessionName].filter((value): value is string => Boolean(value)).map((value) => value.toLowerCase());
+
+  if (labels.length === 0) {
     return "unknown";
   }
 
-  const normalized = sessionType.toLowerCase();
+  if (labels.some((label) => label.includes("qualifying") || label.includes("shootout") || label === "quali" || label === "sq")) {
+    return "qualifying";
+  }
 
-  if (normalized.includes("race") || normalized === "sprint") {
+  if (labels.some((label) => label.includes("race") || label === "sprint")) {
     return "race";
   }
 
-  if (normalized.includes("practice") || normalized.includes("qualifying") || normalized.includes("shootout")) {
+  if (labels.some((label) => label.includes("practice"))) {
     return "timed";
   }
 
   return "unknown";
+}
+
+function formatQualifyingPhase(phase: SessionState["qualifyingPhase"]): string {
+  return phase ? `Q${phase}` : "--";
 }
 
 function getSessionStatus(dateStart: string | null, dateEnd: string | null, now: number): string {
@@ -156,22 +160,6 @@ function getSessionStatus(dateStart: string | null, dateEnd: string | null, now:
   return "Live";
 }
 
-function getSessionTimeContext(dateEnd: string | null, now: number): string {
-  const endTime = parseTimestamp(dateEnd);
-
-  if (endTime === null) {
-    return "--";
-  }
-
-  const remainingSeconds = Math.floor((endTime - now) / 1_000);
-
-  if (remainingSeconds <= 0) {
-    return "Ended";
-  }
-
-  return formatDuration(remainingSeconds);
-}
-
 function parseTimestamp(value: string | null): number | null {
   if (!value) {
     return null;
@@ -179,16 +167,4 @@ function parseTimestamp(value: string | null): number | null {
 
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : parsed;
-}
-
-function formatDuration(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3_600);
-  const minutes = Math.floor((totalSeconds % 3_600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  }
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

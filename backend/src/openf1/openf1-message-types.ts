@@ -71,6 +71,7 @@ export type OpenF1RaceControlMessage = OpenF1MessageMetadata & {
   readonly message: string;
   readonly category?: string;
   readonly flag?: string;
+  readonly qualifying_phase?: number | string | null;
 };
 
 export type OpenF1WeatherMessage = OpenF1MessageMetadata & {

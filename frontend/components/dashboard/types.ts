@@ -20,6 +20,7 @@ export type SessionState = {
   readonly dateStart: string | null;
   readonly dateEnd: string | null;
   readonly driverMetadataStatus: "idle" | "loading" | "ready" | "error";
+  readonly qualifyingPhase: 1 | 2 | 3 | null;
 };
 
 export type MeetingState = {
@@ -81,6 +82,7 @@ export type RaceControlMessage = {
   readonly category: "session" | "flag";
   readonly message: string;
   readonly receivedAt: string;
+  readonly qualifyingPhase?: 1 | 2 | 3;
 };
 
 export type TrackPosition = {
@@ -169,6 +171,7 @@ export type DashboardMessage =
       readonly sentAt: string;
       readonly payload: {
         readonly messages: readonly RaceControlMessage[];
+        readonly qualifyingPhase: SessionState["qualifyingPhase"];
       };
     }
   | {

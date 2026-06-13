@@ -277,6 +277,7 @@ export type OpenF1InternalRaceControlMessage = {
   readonly id: string;
   readonly category: "session" | "flag";
   readonly message: string;
+  readonly qualifyingPhase?: 1 | 2 | 3;
 };
 
 export const MOCK_SOURCE_MESSAGE_TYPES = [

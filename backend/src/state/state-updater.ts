@@ -23,7 +23,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           ...state.session,
           name: message.payload.sessionName,
           type: message.payload.sessionType,
-          driverMetadataStatus: "ready"
+          driverMetadataStatus: "ready",
+          qualifyingPhase: null
         }
       };
 
@@ -77,7 +78,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           type: message.payload.sessionType,
           dateStart: message.payload.dateStart ?? baseState.session.dateStart,
           dateEnd: message.payload.dateEnd ?? baseState.session.dateEnd,
-          driverMetadataStatus: nextSessionKey ? "loading" : "idle"
+          driverMetadataStatus: nextSessionKey ? "loading" : "idle",
+          qualifyingPhase: sessionKeyChanged ? null : baseState.session.qualifyingPhase
         }
       };
     }
@@ -533,10 +535,17 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           receivedAt: message.recordedAt
         }))
       );
+      const qualifyingPhase =
+        message.payload.messages.find((raceControlMessage) => raceControlMessage.qualifyingPhase !== undefined)?.qualifyingPhase ??
+        state.session.qualifyingPhase;
 
       return {
         ...state,
         connection: createFreshConnectionState(state.connection, message.recordedAt),
+        session: {
+          ...state.session,
+          qualifyingPhase
+        },
         raceControlMessages: nextMessages
       };
     }
@@ -635,7 +644,8 @@ export function createDashboardMessageFromState(
         type: "race-control:update",
         sentAt,
         payload: {
-          messages: state.raceControlMessages
+          messages: state.raceControlMessages,
+          qualifyingPhase: state.session.qualifyingPhase
         }
       };
 
