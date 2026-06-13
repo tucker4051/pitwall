@@ -165,7 +165,14 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
     bestLapDuration: nextDriver.bestLapDuration ?? existingDriver.bestLapDuration,
     latestLapDuration: nextDriver.latestLapDuration ?? existingDriver.latestLapDuration,
     latestLapNumber: nextDriver.latestLapNumber ?? existingDriver.latestLapNumber,
-    latestLapUpdatedAt: nextDriver.latestLapUpdatedAt ?? existingDriver.latestLapUpdatedAt
+    latestLapUpdatedAt: nextDriver.latestLapUpdatedAt ?? existingDriver.latestLapUpdatedAt,
+    latestSector1Duration: nextDriver.latestSector1Duration ?? existingDriver.latestSector1Duration,
+    latestSector2Duration: nextDriver.latestSector2Duration ?? existingDriver.latestSector2Duration,
+    latestSector3Duration: nextDriver.latestSector3Duration ?? existingDriver.latestSector3Duration,
+    latestI1Speed: nextDriver.latestI1Speed ?? existingDriver.latestI1Speed,
+    latestI2Speed: nextDriver.latestI2Speed ?? existingDriver.latestI2Speed,
+    latestSpeedTrap: nextDriver.latestSpeedTrap ?? existingDriver.latestSpeedTrap,
+    latestIsPitOutLap: nextDriver.latestIsPitOutLap ?? existingDriver.latestIsPitOutLap
   });
 }
 

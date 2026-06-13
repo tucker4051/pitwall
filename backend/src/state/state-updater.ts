@@ -360,6 +360,13 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
             latestLapDuration: timingDriver.latestLapDuration,
             latestLapNumber: timingDriver.latestLapNumber,
             latestLapUpdatedAt: timingDriver.latestLapUpdatedAt,
+            latestSector1Duration: timingDriver.latestSector1Duration,
+            latestSector2Duration: timingDriver.latestSector2Duration,
+            latestSector3Duration: timingDriver.latestSector3Duration,
+            latestI1Speed: timingDriver.latestI1Speed,
+            latestI2Speed: timingDriver.latestI2Speed,
+            latestSpeedTrap: timingDriver.latestSpeedTrap,
+            latestIsPitOutLap: timingDriver.latestIsPitOutLap,
             latestInterval: timingDriver.latestInterval
           };
         });
@@ -480,7 +487,14 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           bestLapDuration: lapMerge.bestLapDuration,
           latestLapDuration: lapMerge.latestLapDuration,
           latestLapNumber: lapMerge.latestLapNumber,
-          latestLapUpdatedAt: lapMerge.latestLapUpdatedAt
+          latestLapUpdatedAt: lapMerge.latestLapUpdatedAt,
+          latestSector1Duration: lapMerge.latestSector1Duration,
+          latestSector2Duration: lapMerge.latestSector2Duration,
+          latestSector3Duration: lapMerge.latestSector3Duration,
+          latestI1Speed: lapMerge.latestI1Speed,
+          latestI2Speed: lapMerge.latestI2Speed,
+          latestSpeedTrap: lapMerge.latestSpeedTrap,
+          latestIsPitOutLap: lapMerge.latestIsPitOutLap
         };
 
         drivers.set(key, {
@@ -817,20 +831,26 @@ function shouldApplyPositionUpdate(
 
 function mergeLapTiming(
   existingTimingDriver: TimingDriverState | undefined,
-  driverUpdate: { readonly driverNumber: number; readonly lapDuration?: number; readonly lapNumber?: number; readonly lapUpdatedAt?: string },
+  driverUpdate: {
+    readonly driverNumber: number;
+    readonly lapDuration?: number;
+    readonly lapNumber?: number;
+    readonly lapUpdatedAt?: string;
+    readonly sector1Duration?: number;
+    readonly sector2Duration?: number;
+    readonly sector3Duration?: number;
+    readonly i1Speed?: number;
+    readonly i2Speed?: number;
+    readonly speedTrap?: number;
+    readonly isPitOutLap?: boolean;
+  },
   recordedAt: string,
   sessionKey: string | number | undefined
-): Pick<TimingDriverState, "bestLapDuration" | "bestLapTime" | "latestLapDuration" | "latestLapNumber" | "latestLapUpdatedAt"> {
+): LapTimingMerge {
   const existingBestLapDuration = existingTimingDriver?.bestLapDuration;
 
   if (driverUpdate.lapDuration === undefined) {
-    return {
-      bestLapDuration: existingBestLapDuration,
-      bestLapTime: existingTimingDriver?.bestLapTime,
-      latestLapDuration: existingTimingDriver?.latestLapDuration,
-      latestLapNumber: existingTimingDriver?.latestLapNumber,
-      latestLapUpdatedAt: existingTimingDriver?.latestLapUpdatedAt
-    };
+    return preserveLapTiming(existingTimingDriver, existingBestLapDuration);
   }
 
   if (!isValidLapDuration(driverUpdate.lapDuration)) {
@@ -840,16 +860,11 @@ function mergeLapTiming(
       lapNumber: driverUpdate.lapNumber
     });
 
-    return {
-      bestLapDuration: existingBestLapDuration,
-      bestLapTime: existingTimingDriver?.bestLapTime,
-      latestLapDuration: existingTimingDriver?.latestLapDuration,
-      latestLapNumber: existingTimingDriver?.latestLapNumber,
-      latestLapUpdatedAt: existingTimingDriver?.latestLapUpdatedAt
-    };
+    return preserveLapTiming(existingTimingDriver, existingBestLapDuration);
   }
 
   const updatedAt = driverUpdate.lapUpdatedAt ?? recordedAt;
+  const latestLapUpdated = isNewerLapUpdate(existingTimingDriver, driverUpdate, updatedAt);
   const bestLapUpdated =
     existingBestLapDuration === undefined || driverUpdate.lapDuration < existingBestLapDuration;
 
@@ -871,10 +886,77 @@ function mergeLapTiming(
   return {
     bestLapDuration: bestLapUpdated ? driverUpdate.lapDuration : existingBestLapDuration,
     bestLapTime: bestLapUpdated ? formatLapDuration(driverUpdate.lapDuration) : existingTimingDriver?.bestLapTime,
-    latestLapDuration: driverUpdate.lapDuration,
-    latestLapNumber: driverUpdate.lapNumber,
-    latestLapUpdatedAt: updatedAt
+    latestLapDuration: latestLapUpdated ? driverUpdate.lapDuration : existingTimingDriver?.latestLapDuration,
+    latestLapNumber: latestLapUpdated ? driverUpdate.lapNumber : existingTimingDriver?.latestLapNumber,
+    latestLapUpdatedAt: latestLapUpdated ? updatedAt : existingTimingDriver?.latestLapUpdatedAt,
+    latestSector1Duration: latestLapUpdated ? driverUpdate.sector1Duration : existingTimingDriver?.latestSector1Duration,
+    latestSector2Duration: latestLapUpdated ? driverUpdate.sector2Duration : existingTimingDriver?.latestSector2Duration,
+    latestSector3Duration: latestLapUpdated ? driverUpdate.sector3Duration : existingTimingDriver?.latestSector3Duration,
+    latestI1Speed: latestLapUpdated ? driverUpdate.i1Speed : existingTimingDriver?.latestI1Speed,
+    latestI2Speed: latestLapUpdated ? driverUpdate.i2Speed : existingTimingDriver?.latestI2Speed,
+    latestSpeedTrap: latestLapUpdated ? driverUpdate.speedTrap : existingTimingDriver?.latestSpeedTrap,
+    latestIsPitOutLap: latestLapUpdated ? driverUpdate.isPitOutLap : existingTimingDriver?.latestIsPitOutLap
   };
+}
+
+type LapTimingMerge = Pick<
+  TimingDriverState,
+  | "bestLapDuration"
+  | "bestLapTime"
+  | "latestLapDuration"
+  | "latestLapNumber"
+  | "latestLapUpdatedAt"
+  | "latestSector1Duration"
+  | "latestSector2Duration"
+  | "latestSector3Duration"
+  | "latestI1Speed"
+  | "latestI2Speed"
+  | "latestSpeedTrap"
+  | "latestIsPitOutLap"
+>;
+
+function preserveLapTiming(
+  existingTimingDriver: TimingDriverState | undefined,
+  existingBestLapDuration: number | undefined
+): LapTimingMerge {
+  return {
+    bestLapDuration: existingBestLapDuration,
+    bestLapTime: existingTimingDriver?.bestLapTime,
+    latestLapDuration: existingTimingDriver?.latestLapDuration,
+    latestLapNumber: existingTimingDriver?.latestLapNumber,
+    latestLapUpdatedAt: existingTimingDriver?.latestLapUpdatedAt,
+    latestSector1Duration: existingTimingDriver?.latestSector1Duration,
+    latestSector2Duration: existingTimingDriver?.latestSector2Duration,
+    latestSector3Duration: existingTimingDriver?.latestSector3Duration,
+    latestI1Speed: existingTimingDriver?.latestI1Speed,
+    latestI2Speed: existingTimingDriver?.latestI2Speed,
+    latestSpeedTrap: existingTimingDriver?.latestSpeedTrap,
+    latestIsPitOutLap: existingTimingDriver?.latestIsPitOutLap
+  };
+}
+
+function isNewerLapUpdate(
+  existingTimingDriver: TimingDriverState | undefined,
+  driverUpdate: { readonly lapNumber?: number },
+  updatedAt: string
+): boolean {
+  if (!existingTimingDriver?.latestLapNumber && !existingTimingDriver?.latestLapUpdatedAt) {
+    return true;
+  }
+
+  if (
+    driverUpdate.lapNumber !== undefined &&
+    existingTimingDriver.latestLapNumber !== undefined &&
+    driverUpdate.lapNumber !== existingTimingDriver.latestLapNumber
+  ) {
+    return driverUpdate.lapNumber > existingTimingDriver.latestLapNumber;
+  }
+
+  if (!existingTimingDriver.latestLapUpdatedAt) {
+    return true;
+  }
+
+  return Date.parse(updatedAt) >= Date.parse(existingTimingDriver.latestLapUpdatedAt);
 }
 
 function mergeIntervalTiming(

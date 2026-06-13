@@ -264,6 +264,13 @@ export type OpenF1InternalTimingDriver = {
   readonly lapUpdatedAt?: string;
   readonly lastLapTime?: string;
   readonly bestLapTime?: string;
+  readonly sector1Duration?: number;
+  readonly sector2Duration?: number;
+  readonly sector3Duration?: number;
+  readonly i1Speed?: number;
+  readonly i2Speed?: number;
+  readonly speedTrap?: number;
+  readonly isPitOutLap?: boolean;
 };
 
 export type OpenF1InternalRaceControlMessage = {

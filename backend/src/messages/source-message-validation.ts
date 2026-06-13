@@ -288,7 +288,14 @@ function validateOpenF1TimingMessage(message: Record<string, unknown>): SourceMe
       optionalNumber(driver.lapNumber) &&
       optionalString(driver.lapUpdatedAt) &&
       optionalString(driver.lastLapTime) &&
-      optionalString(driver.bestLapTime)
+      optionalString(driver.bestLapTime) &&
+      optionalNumber(driver.sector1Duration) &&
+      optionalNumber(driver.sector2Duration) &&
+      optionalNumber(driver.sector3Duration) &&
+      optionalNumber(driver.i1Speed) &&
+      optionalNumber(driver.i2Speed) &&
+      optionalNumber(driver.speedTrap) &&
+      optionalBoolean(driver.isPitOutLap)
   );
 
   return driversAreValid ? valid(message as SourceMessage) : invalid("openf1:timing drivers are malformed");
@@ -348,6 +355,10 @@ function optionalNumber(value: unknown): boolean {
   return value === null || value === undefined || isNumber(value);
 }
 
+function optionalBoolean(value: unknown): boolean {
+  return value === null || value === undefined || typeof value === "boolean";
+}
+
 function isOpenF1SessionType(value: unknown): boolean {
   return (
     value === "Race" ||
@@ -367,5 +378,5 @@ function isIsoDateString(value: unknown): value is string {
 }
 
 function isMockTyreCompound(value: unknown): value is MockTyreCompound {
-  return value === "soft" || value === "medium" || value === "hard";
+  return value === "soft" || value === "medium" || value === "hard" || value === "intermediate" || value === "wet";
 }

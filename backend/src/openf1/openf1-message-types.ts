@@ -43,6 +43,13 @@ export type OpenF1LapMessage = OpenF1MessageMetadata & {
   readonly driver_number: number;
   readonly lap_number: number;
   readonly lap_duration?: number | null;
+  readonly duration_sector_1?: number | null;
+  readonly duration_sector_2?: number | null;
+  readonly duration_sector_3?: number | null;
+  readonly i1_speed?: number | null;
+  readonly i2_speed?: number | null;
+  readonly st_speed?: number | null;
+  readonly is_pit_out_lap?: boolean;
   readonly date_start?: string;
 };
 

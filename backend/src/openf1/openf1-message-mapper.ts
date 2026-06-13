@@ -185,7 +185,14 @@ function mapLapMessage(
             lapDuration: readNumber(payload.lap_duration),
             lapNumber: payload.lap_number,
             lapUpdatedAt: readOptionalString(payload.date_start) ?? recordedAt,
-            lastLapTime: formatDuration(payload.lap_duration)
+            lastLapTime: formatDuration(payload.lap_duration),
+            sector1Duration: readOptionalNumber(payload.duration_sector_1),
+            sector2Duration: readOptionalNumber(payload.duration_sector_2),
+            sector3Duration: readOptionalNumber(payload.duration_sector_3),
+            i1Speed: readOptionalNumber(payload.i1_speed),
+            i2Speed: readOptionalNumber(payload.i2_speed),
+            speedTrap: readOptionalNumber(payload.st_speed),
+            isPitOutLap: readOptionalBoolean(payload.is_pit_out_lap)
           }
         ]
       }
@@ -535,6 +542,10 @@ function isNumber(value: unknown): value is number {
 
 function readOptionalNumber(value: unknown): number | undefined {
   return isNumber(value) ? value : undefined;
+}
+
+function readOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | "intermediate" | "wet" | undefined {

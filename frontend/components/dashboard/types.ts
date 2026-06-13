@@ -60,6 +60,13 @@ export type TimingDriver = {
   readonly latestLapDuration?: number;
   readonly latestLapNumber?: number;
   readonly latestLapUpdatedAt?: string;
+  readonly latestSector1Duration?: number;
+  readonly latestSector2Duration?: number;
+  readonly latestSector3Duration?: number;
+  readonly latestI1Speed?: number;
+  readonly latestI2Speed?: number;
+  readonly latestSpeedTrap?: number;
+  readonly latestIsPitOutLap?: boolean;
   readonly latestInterval?: string;
   readonly intervalUpdatedAt?: string;
 };

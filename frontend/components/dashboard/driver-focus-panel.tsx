@@ -68,9 +68,7 @@ export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry 
             <TyreStintSummary stint={stint} latestLapNumber={driver?.latestLapNumber} />
           </div>
           <div className="border border-slate-800 bg-[#090d13] p-3">
-            <p className="text-[10px] font-bold uppercase text-slate-500">Lap info</p>
-            <p className="mt-2 font-mono text-sm text-slate-200">{driver?.lastLapTime ?? "--"} last</p>
-            <p className="font-mono text-xs text-slate-500">{driver?.bestLapTime ?? "--"} best</p>
+            <LapDetail driver={driver} />
           </div>
         </div>
 
@@ -170,11 +168,14 @@ function getDriverFocusMetrics(
   if (timingColumnHeader === "BEST") {
     return [
       { label: "Rank", value: driver.displayPosition === "--" ? "--" : `P${driver.displayPosition}` },
-      { label: "Best lap", value: driver.displayTimingValue },
       {
         label: "Last lap",
         value: formatLapDuration(driver.latestLapDuration),
         detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
+      },
+      {
+        label: "Speed trap",
+        value: formatSpeed(driver.latestSpeedTrap)
       }
     ];
   }
@@ -189,11 +190,14 @@ function getDriverFocusMetrics(
 
   return [
     { label: "Pos", value: formatRacePosition(driver) },
-    { label: "Best lap", value: driver.bestLapTime ?? formatLapDuration(driver.bestLapDuration) },
     {
       label: "Last lap",
       value: formatLapDuration(driver.latestLapDuration),
       detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
+    },
+    {
+      label: "Speed trap",
+      value: formatSpeed(driver.latestSpeedTrap)
     }
   ];
 }
@@ -208,6 +212,46 @@ function getSafeDriverDisplayLabel(driver: TimingTowerRow | null, fallback: stri
   const label = driver?.displayLabel ?? fallback;
 
   return /^#?\d+$/.test(label.trim()) ? "---" : label;
+}
+
+function LapDetail({ driver }: { readonly driver: TimingTowerRow | null }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase text-slate-500">Lap detail</p>
+        {driver?.latestIsPitOutLap ? (
+          <span className="border border-cyan-400/30 bg-cyan-400/10 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-cyan-200">
+            Out lap
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex items-baseline justify-between gap-2">
+        <span className="font-mono text-sm font-bold text-slate-200">
+          {driver?.latestLapNumber ? `Lap ${driver.latestLapNumber}` : "Lap --"}
+        </span>
+        <span className="font-mono text-xs tabular-nums text-slate-500">
+          {formatLapDuration(driver?.latestLapDuration)}
+        </span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-x-2 gap-y-1 font-mono text-[10px] uppercase">
+        <LapDetailValue label="S1" value={formatSectorDuration(driver?.latestSector1Duration)} />
+        <LapDetailValue label="S2" value={formatSectorDuration(driver?.latestSector2Duration)} />
+        <LapDetailValue label="S3" value={formatSectorDuration(driver?.latestSector3Duration)} />
+        <LapDetailValue label="I1" value={formatSpeed(driver?.latestI1Speed)} />
+        <LapDetailValue label="I2" value={formatSpeed(driver?.latestI2Speed)} />
+        <LapDetailValue label="ST" value={formatSpeed(driver?.latestSpeedTrap)} />
+      </div>
+    </div>
+  );
+}
+
+function LapDetailValue({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <p className="text-[9px] font-bold text-slate-600">{label}</p>
+      <p className="tabular-nums text-slate-200">{value}</p>
+    </div>
+  );
 }
 
 function TyreStintSummary({
@@ -281,6 +325,14 @@ function formatLapRange(stint: TyreStint): string {
   }
 
   return "--";
+}
+
+function formatSectorDuration(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value.toFixed(3) : "--";
+}
+
+function formatSpeed(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? `${Math.round(value)} km/h` : "--";
 }
 
 function Telemetry({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit: string }) {

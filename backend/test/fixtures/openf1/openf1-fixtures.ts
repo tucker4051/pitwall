@@ -73,7 +73,15 @@ export const OPENF1_FIXTURE_MESSAGES = [
       session_key: 9999,
       driver_number: 1,
       lap_number: 14,
-      lap_duration: 84.321
+      lap_duration: 84.321,
+      duration_sector_1: 27.842,
+      duration_sector_2: 32.101,
+      duration_sector_3: 24.378,
+      i1_speed: 286,
+      i2_speed: 291,
+      st_speed: 314,
+      is_pit_out_lap: false,
+      date_start: "2026-06-11T12:14:00.000Z"
     }
   },
   {
