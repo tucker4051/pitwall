@@ -1,5 +1,6 @@
 import type { ConnectionState, MeetingState, SessionState, TimingDriver, TyreStint } from "./types";
 import { formatLapDuration } from "./format";
+import { classifySessionKind, type SessionKind } from "./session-classification";
 
 export type TimingTowerRow = TimingDriver & {
   readonly rowKey: string;
@@ -66,7 +67,7 @@ export function buildTimingTowerRows({
   timingDrivers,
   stints
 }: BuildTimingTowerRowsInput): TimingTowerRowsResult {
-  const timingDisplayMode = getTimingDisplayMode(session.type ?? connection.sessionType);
+  const timingDisplayMode = getTimingDisplayMode(classifySessionKind(session.type, session.name, connection.sessionType, connection.sessionName));
   const timingColumnHeader = getTimingColumnHeader(timingDisplayMode);
 
   if (dataMode === "mock") {
@@ -434,22 +435,12 @@ function findExistingDriverRowKey(
 
 type TimingDisplayMode = "best-lap" | "interval" | "unknown";
 
-function getTimingDisplayMode(sessionType: string | null | undefined): TimingDisplayMode {
-  if (!sessionType) {
-    return "unknown";
-  }
-
-  const normalized = sessionType.toLowerCase();
-
-  if (
-    normalized.includes("practice") ||
-    normalized.includes("qualifying") ||
-    normalized.includes("shootout")
-  ) {
+function getTimingDisplayMode(sessionKind: SessionKind): TimingDisplayMode {
+  if (sessionKind === "timed" || sessionKind === "qualifying") {
     return "best-lap";
   }
 
-  if (normalized.includes("race") || normalized === "sprint") {
+  if (sessionKind === "race") {
     return "interval";
   }
 

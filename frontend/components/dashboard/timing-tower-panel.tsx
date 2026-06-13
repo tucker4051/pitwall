@@ -1,9 +1,13 @@
 import { getDriverIdentity } from "./driver-identity";
+import { isQualifyingStyleSession } from "./session-classification";
 import { getTeamStripStyle } from "./team-colours";
 import type { TimingTowerRow, TimingTowerRowsResult } from "./timing-tower-data";
+import type { SessionState } from "./types";
 
 type TimingTowerPanelProps = {
   readonly rowsResult: TimingTowerRowsResult;
+  readonly session: SessionState;
+  readonly eliminatedRowKeys: ReadonlySet<string>;
   readonly selectedDriverKey: string | null;
   readonly onSelectDriver: (row: TimingTowerRow) => void;
   readonly onClearSelectedDriver: () => void;
@@ -11,12 +15,15 @@ type TimingTowerPanelProps = {
 
 export function TimingTowerPanel({
   rowsResult,
+  session,
+  eliminatedRowKeys,
   selectedDriverKey,
   onSelectDriver,
   onClearSelectedDriver
 }: TimingTowerPanelProps) {
   const visibleDrivers = rowsResult.rows;
   const metadataPendingCount = visibleDrivers.filter((driver) => !driver.hasDriverMetadata).length;
+  const dangerZone = getQualifyingDangerZone(session);
 
   return (
     <section
@@ -39,8 +46,10 @@ export function TimingTowerPanel({
         {visibleDrivers.length === 0 ? <TimingTowerEmptyState emptyState={rowsResult.emptyState} /> : null}
         {metadataPendingCount > 0 ? <MetadataPendingNote count={metadataPendingCount} /> : null}
 
-        {visibleDrivers.map((driver) => {
+        {visibleDrivers.map((driver, index) => {
           const selected = driver.rowKey === selectedDriverKey;
+          const isEliminated = eliminatedRowKeys.has(driver.rowKey);
+          const isDangerZone = !isEliminated && isTimingRowInDangerZone(index + 1, visibleDrivers.length, dangerZone);
           const identity = getDriverIdentity(driver);
 
           return (
@@ -51,9 +60,7 @@ export function TimingTowerPanel({
                 event.stopPropagation();
                 onSelectDriver(driver);
               }}
-              className={`grid h-[27px] w-full grid-cols-[34px_1fr_66px_42px] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
-                selected ? "bg-cyan-400/10 text-cyan-100" : "bg-transparent text-slate-300 hover:bg-slate-900"
-              }`}
+              className={getTimingRowClassName(selected, isDangerZone, isEliminated)}
             >
               <span className="font-mono text-slate-500">{driver.displayPosition}</span>
               <span className="flex items-center gap-2 font-black">
@@ -72,6 +79,64 @@ export function TimingTowerPanel({
       </div>
     </section>
   );
+}
+
+type QualifyingDangerZone = {
+  readonly phase: 1 | 2;
+  readonly lowerRank: number;
+  readonly upperRank: number;
+} | null;
+
+function getQualifyingDangerZone(session: SessionState): QualifyingDangerZone {
+  if (!isQualifyingStyleSession(session.type, session.name)) {
+    return null;
+  }
+
+  if (session.qualifyingPhase === 1) {
+    return {
+      phase: 1,
+      lowerRank: 17,
+      upperRank: 22
+    };
+  }
+
+  if (session.qualifyingPhase === 2) {
+    return {
+      phase: 2,
+      lowerRank: 11,
+      upperRank: 16
+    };
+  }
+
+  return null;
+}
+
+function isTimingRowInDangerZone(rowRank: number, rowCount: number, dangerZone: QualifyingDangerZone): boolean {
+  if (!dangerZone) {
+    return false;
+  }
+
+  return rowRank >= dangerZone.lowerRank && rowRank <= Math.min(rowCount, dangerZone.upperRank);
+}
+
+function getTimingRowClassName(selected: boolean, isDangerZone: boolean, isEliminated: boolean): string {
+  const baseClassName = "grid h-[27px] w-full grid-cols-[34px_1fr_66px_42px] items-center border-b border-slate-900 px-2 text-left text-[11px]";
+  const dangerClassName = isDangerZone ? "shadow-[inset_2px_0_0_rgba(251,191,36,0.8)]" : "";
+  const eliminatedClassName = isEliminated ? "shadow-[inset_2px_0_0_rgba(248,113,113,0.85)]" : "";
+
+  if (selected) {
+    return `${baseClassName} ${dangerClassName} ${eliminatedClassName} bg-cyan-400/10 text-cyan-100`;
+  }
+
+  if (isEliminated) {
+    return `${baseClassName} ${eliminatedClassName} bg-red-500/10 text-red-100 hover:bg-red-500/15`;
+  }
+
+  if (isDangerZone) {
+    return `${baseClassName} ${dangerClassName} bg-amber-400/10 text-amber-50 hover:bg-amber-400/15`;
+  }
+
+  return `${baseClassName} bg-transparent text-slate-300 hover:bg-slate-900`;
 }
 
 function TyreChip({

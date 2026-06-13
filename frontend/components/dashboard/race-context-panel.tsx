@@ -1,4 +1,5 @@
 import { formatNumber, formatTime } from "./format";
+import { classifySessionKind } from "./session-classification";
 import type { DashboardDataMode, MeetingState, RaceControlMessage, SessionState, WeatherState } from "./types";
 
 type RaceContextPanelProps = {
@@ -25,7 +26,7 @@ const contextGridClassName = "grid-cols-[minmax(360px,2fr)_minmax(190px,1fr)_min
 
 export function RaceContextPanel({ raceControlMessages, weather, meeting, session, lap, driverCount, dataMode, now }: RaceContextPanelProps) {
   const visibleMessages = raceControlMessages.length > 0 ? raceControlMessages : dataMode === "mock" ? FALLBACK_MESSAGES : [];
-  const sessionClass = classifySessionType(session.type, session.name);
+  const sessionClass = classifySessionKind(session.type, session.name);
   const sessionStatus = getSessionStatus(session.dateStart, session.dateEnd, now);
 
   return (
@@ -111,30 +112,6 @@ function InfoRow({ label, value }: { readonly label: string; readonly value: str
 
 function Empty({ label }: { readonly label: string }) {
   return <p className="border border-slate-800 bg-[#090d13] px-2 py-2 text-xs text-slate-500">{label}</p>;
-}
-
-type SessionClass = "race" | "qualifying" | "timed" | "unknown";
-
-function classifySessionType(sessionType: string | null | undefined, sessionName: string | null | undefined): SessionClass {
-  const labels = [sessionType, sessionName].filter((value): value is string => Boolean(value)).map((value) => value.toLowerCase());
-
-  if (labels.length === 0) {
-    return "unknown";
-  }
-
-  if (labels.some((label) => label.includes("qualifying") || label.includes("shootout") || label === "quali" || label === "sq")) {
-    return "qualifying";
-  }
-
-  if (labels.some((label) => label.includes("race") || label === "sprint")) {
-    return "race";
-  }
-
-  if (labels.some((label) => label.includes("practice"))) {
-    return "timed";
-  }
-
-  return "unknown";
 }
 
 function formatQualifyingPhase(phase: SessionState["qualifyingPhase"]): string {

@@ -4,9 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DebugPanel } from "./debug-panel";
 import { DriverFocusPanel } from "./driver-focus-panel";
+import {
+  applyQualifyingFreeze,
+  buildTimingTowerRowsForDashboard,
+  INITIAL_QUALIFYING_FREEZE_STATE,
+  reduceQualifyingFreezeState,
+  type QualifyingFreezeState
+} from "./qualifying-elimination-freeze";
 import { RaceContextPanel } from "./race-context-panel";
 import { TimingTowerPanel } from "./timing-tower-panel";
-import { buildTimingTowerRows } from "./timing-tower-data";
 import { TopStatusBar } from "./top-status-bar";
 import { TrackMapPanel } from "./track-map-panel";
 import type {
@@ -72,9 +78,19 @@ const INITIAL_DASHBOARD_STATE: DashboardState = {
   stints: []
 };
 
+type DashboardViewState = {
+  readonly dashboard: DashboardState;
+  readonly qualifyingFreeze: QualifyingFreezeState;
+};
+
+const INITIAL_DASHBOARD_VIEW_STATE: DashboardViewState = {
+  dashboard: INITIAL_DASHBOARD_STATE,
+  qualifyingFreeze: INITIAL_QUALIFYING_FREEZE_STATE
+};
+
 export function DashboardShell() {
   const webSocketUrl = useMemo(() => process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:3001/ws", []);
-  const [dashboard, setDashboard] = useState<DashboardState>(INITIAL_DASHBOARD_STATE);
+  const [viewState, setViewState] = useState<DashboardViewState>(INITIAL_DASHBOARD_VIEW_STATE);
   const [socketStatus, setSocketStatus] = useState<ConnectionStatus>("connecting");
   const [selectedDriverKey, setSelectedDriverKey] = useState<string | null>(null);
   const [debugMessages, setDebugMessages] = useState<readonly string[]>([]);
@@ -83,6 +99,7 @@ export function DashboardShell() {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shouldReconnectRef = useRef(true);
+  const dashboard = viewState.dashboard;
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -127,7 +144,7 @@ export function DashboardShell() {
           return;
         }
 
-        setDashboard((currentDashboard) => reduceDashboardMessage(currentDashboard, message));
+        setViewState((currentViewState) => reduceDashboardViewState(currentViewState, message));
       });
 
       socket.addEventListener("close", () => {
@@ -160,16 +177,10 @@ export function DashboardShell() {
     };
   }, [webSocketUrl]);
 
-  const timingTowerRowsResult = buildTimingTowerRows({
-    dataMode: dashboard.connection.dataMode,
-    meeting: dashboard.meeting,
-    session: dashboard.session,
-    connection: dashboard.connection,
-    drivers: dashboard.drivers,
-    timingDrivers: dashboard.timing.drivers,
-    stints: dashboard.stints
-  });
-  const visibleDrivers = timingTowerRowsResult.rows;
+  const timingTowerRowsResult = buildTimingTowerRowsForDashboard(dashboard);
+  const qualifyingElimination = applyQualifyingFreeze(timingTowerRowsResult, viewState.qualifyingFreeze, dashboard.session);
+  const displayTimingTowerRowsResult = qualifyingElimination.rowsResult;
+  const visibleDrivers = displayTimingTowerRowsResult.rows;
   const selectedTimingDriver =
     selectedDriverKey && visibleDrivers.some((driver) => driver.rowKey === selectedDriverKey)
       ? (visibleDrivers.find((driver) => driver.rowKey === selectedDriverKey) ?? null)
@@ -185,7 +196,9 @@ export function DashboardShell() {
         <div className="grid min-h-0 flex-1 grid-cols-[300px_minmax(520px,1fr)_360px] gap-3 p-3">
           <div className="min-h-0">
             <TimingTowerPanel
-              rowsResult={timingTowerRowsResult}
+              rowsResult={displayTimingTowerRowsResult}
+              session={dashboard.session}
+              eliminatedRowKeys={qualifyingElimination.eliminatedRowKeys}
               selectedDriverKey={selectedTimingDriver?.rowKey ?? null}
               onSelectDriver={(driver) => setSelectedDriverKey(driver.rowKey)}
               onClearSelectedDriver={() => setSelectedDriverKey(null)}
@@ -313,6 +326,19 @@ function reduceDashboardMessage(dashboard: DashboardState, message: DashboardMes
         stints: message.payload.stints
       };
   }
+}
+
+function reduceDashboardViewState(viewState: DashboardViewState, message: DashboardMessage): DashboardViewState {
+  const nextDashboard = reduceDashboardMessage(viewState.dashboard, message);
+
+  return {
+    dashboard: nextDashboard,
+    qualifyingFreeze: reduceQualifyingFreezeState({
+      freezeState: viewState.qualifyingFreeze,
+      currentDashboard: viewState.dashboard,
+      nextDashboard
+    })
+  };
 }
 
 function parseDashboardMessage(data: unknown): DashboardMessage | null {
