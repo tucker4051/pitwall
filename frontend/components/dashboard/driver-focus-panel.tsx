@@ -168,14 +168,11 @@ function getDriverFocusMetrics(
   if (timingColumnHeader === "BEST") {
     return [
       { label: "Rank", value: driver.displayPosition === "--" ? "--" : `P${driver.displayPosition}` },
+      { label: "Best lap", value: driver.bestLapTime ?? formatLapDuration(driver.bestLapDuration) },
       {
         label: "Last lap",
         value: formatLapDuration(driver.latestLapDuration),
         detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
-      },
-      {
-        label: "Speed trap",
-        value: formatSpeed(driver.latestSpeedTrap)
       }
     ];
   }
@@ -190,14 +187,11 @@ function getDriverFocusMetrics(
 
   return [
     { label: "Pos", value: formatRacePosition(driver) },
+    { label: "Best lap", value: driver.bestLapTime ?? formatLapDuration(driver.bestLapDuration) },
     {
       label: "Last lap",
       value: formatLapDuration(driver.latestLapDuration),
       detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
-    },
-    {
-      label: "Speed trap",
-      value: formatSpeed(driver.latestSpeedTrap)
     }
   ];
 }
