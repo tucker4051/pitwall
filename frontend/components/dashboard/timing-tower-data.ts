@@ -136,7 +136,8 @@ function mergeDriverRows(
 
   return Array.from(rowsByIdentity.values())
     .map((driver) => toTimingTowerRow(driver, timingDisplayMode))
-    .sort(compareTimingTowerRows);
+    .sort((left, right) => compareTimingTowerRows(left, right, timingDisplayMode))
+    .map((row, index) => applyDisplayPosition(row, index, timingDisplayMode));
 }
 
 function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: TimingDriver): TimingDriver {
@@ -182,19 +183,64 @@ function toTimingTowerRow(driver: TimingDriver, timingDisplayMode: TimingDisplay
   return {
     ...driver,
     rowKey: getDriverRowKey(driver),
-    displayPosition: driver.position === Number.MAX_SAFE_INTEGER ? "--" : String(driver.position).padStart(2, "0"),
+    displayPosition:
+      timingDisplayMode === "interval" && driver.position !== Number.MAX_SAFE_INTEGER
+        ? String(driver.position).padStart(2, "0")
+        : "--",
     displayLabel: getTimingTowerDisplayLabel(driver),
     displayTimingValue: getTimingDisplayValue(driver, timingDisplayMode),
     hasDriverMetadata: Boolean(getAcronym(driver))
   };
 }
 
-function compareTimingTowerRows(left: TimingTowerRow, right: TimingTowerRow): number {
+function compareTimingTowerRows(left: TimingTowerRow, right: TimingTowerRow, timingDisplayMode: TimingDisplayMode): number {
+  if (timingDisplayMode === "best-lap") {
+    const leftHasBestLap = isValidBestLapDuration(left.bestLapDuration);
+    const rightHasBestLap = isValidBestLapDuration(right.bestLapDuration);
+
+    if (leftHasBestLap && rightHasBestLap && left.bestLapDuration !== right.bestLapDuration) {
+      return left.bestLapDuration - right.bestLapDuration;
+    }
+
+    if (leftHasBestLap !== rightHasBestLap) {
+      return leftHasBestLap ? -1 : 1;
+    }
+
+    return compareDriverAcronym(left, right);
+  }
+
+  if (timingDisplayMode === "unknown") {
+    return compareDriverAcronym(left, right);
+  }
+
   if (left.position !== right.position) {
     return left.position - right.position;
   }
 
+  return compareDriverAcronym(left, right);
+}
+
+function applyDisplayPosition(
+  row: TimingTowerRow,
+  index: number,
+  timingDisplayMode: TimingDisplayMode
+): TimingTowerRow {
+  if (timingDisplayMode !== "best-lap") {
+    return row;
+  }
+
+  return {
+    ...row,
+    displayPosition: isValidBestLapDuration(row.bestLapDuration) ? String(index + 1).padStart(2, "0") : "--"
+  };
+}
+
+function compareDriverAcronym(left: TimingTowerRow, right: TimingTowerRow): number {
   return (left.nameAcronym ?? left.abbreviation).localeCompare(right.nameAcronym ?? right.abbreviation);
+}
+
+function isValidBestLapDuration(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
 function getDriverRowKey(driver: TimingDriver): string {
