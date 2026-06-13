@@ -1,12 +1,15 @@
-import { formatTime, getCompoundClassName } from "./format";
-import type { DashboardDataMode, RaceControlMessage, TelemetrySnapshot, TyreStint, WeatherState } from "./types";
+import { formatNumber, formatTime } from "./format";
+import type { DashboardDataMode, MeetingState, RaceControlMessage, SessionState, WeatherState } from "./types";
 
 type RaceContextPanelProps = {
   readonly raceControlMessages: readonly RaceControlMessage[];
-  readonly stints: readonly TyreStint[];
   readonly weather: WeatherState | null;
-  readonly telemetry: readonly TelemetrySnapshot[];
+  readonly meeting: MeetingState;
+  readonly session: SessionState;
+  readonly lap: number | null;
+  readonly driverCount: number;
   readonly dataMode: DashboardDataMode;
+  readonly now: number;
 };
 
 const FALLBACK_MESSAGES: readonly RaceControlMessage[] = [
@@ -18,48 +21,34 @@ const FALLBACK_MESSAGES: readonly RaceControlMessage[] = [
   }
 ];
 
-const contextGridClassName = "grid-cols-[minmax(260px,1.35fr)_minmax(170px,0.9fr)_minmax(190px,1fr)_minmax(190px,1fr)]";
+const contextGridClassName = "grid-cols-[minmax(360px,2fr)_minmax(190px,1fr)_minmax(190px,1fr)]";
 
-export function RaceContextPanel({ raceControlMessages, stints, weather, telemetry, dataMode }: RaceContextPanelProps) {
+export function RaceContextPanel({ raceControlMessages, weather, meeting, session, lap, driverCount, dataMode, now }: RaceContextPanelProps) {
   const visibleMessages = raceControlMessages.length > 0 ? raceControlMessages : dataMode === "mock" ? FALLBACK_MESSAGES : [];
+  const sessionClass = classifySessionType(session.type);
+  const sessionStatus = getSessionStatus(session.dateStart, session.dateEnd, now);
+  const sessionTimeContext = getSessionTimeContext(session.dateEnd, now);
 
   return (
     <section className="flex min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
       <div className={`grid h-10 ${contextGridClassName} border-b border-slate-800 text-[11px] font-bold uppercase`}>
-        <Tab active label="Race Control" />
-        <Tab label="Tyres" />
+        <Tab label="Race Control" />
         <Tab label="Weather" />
-        <Tab label="Telemetry" />
+        <Tab label="Session Info" />
       </div>
 
       <div className={`grid min-h-0 flex-1 ${contextGridClassName} gap-0 overflow-hidden`}>
         <div className="min-w-0 overflow-auto border-r border-slate-800">
           {visibleMessages.length === 0 ? <Empty label="No race-control messages yet" /> : null}
           {visibleMessages.slice(0, 7).map((message) => (
-            <div key={message.id} className="grid grid-cols-[72px_72px_1fr] border-b border-slate-900 px-3 py-2 text-xs">
+            <div key={message.id} className="grid grid-cols-[72px_72px_minmax(0,1fr)] gap-2 border-b border-slate-900 px-3 py-2 text-xs">
               <span className="font-mono text-slate-500">{formatTime(message.receivedAt)}</span>
               <span className={message.category === "flag" ? "font-bold uppercase text-amber-300" : "font-bold uppercase text-slate-400"}>
                 {message.category}
               </span>
-              <span className="truncate text-slate-200">{message.message}</span>
+              <span className="min-w-0 whitespace-normal break-words text-slate-200">{message.message}</span>
             </div>
           ))}
-        </div>
-
-        <div className="min-h-0 overflow-auto border-r border-slate-800 p-3">
-          <PanelLabel label="Tyre Stints" />
-          <div className="mt-2 space-y-1.5">
-            {stints.slice(0, 5).map((stint) => (
-              <div key={stint.driverNumber} className="grid grid-cols-[38px_1fr_34px] items-center gap-2 text-xs">
-                <span className="font-mono text-slate-400">#{stint.driverNumber}</span>
-                <span className={`min-w-0 border px-2 py-0.5 text-center text-[10px] font-bold uppercase ${getCompoundClassName(stint.compound)}`}>
-                  {stint.compound}
-                </span>
-                <span className="text-right font-mono text-slate-300">{stint.stintAgeLaps}L</span>
-              </div>
-            ))}
-            {stints.length === 0 ? <Empty label="No stint data yet" /> : null}
-          </div>
         </div>
 
         <div className="min-h-0 overflow-auto border-r border-slate-800 p-3">
@@ -76,18 +65,17 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
         </div>
 
         <div className="min-h-0 overflow-auto p-3">
-          <PanelLabel label="Telemetry" />
-          <div className="mt-2 space-y-2">
-            {telemetry.slice(0, 4).map((snapshot) => (
-              <div key={snapshot.driverNumber} className="grid grid-cols-[40px_minmax(64px,1fr)_44px] items-center gap-2 text-xs">
-                <span className="font-mono text-slate-400">#{snapshot.driverNumber}</span>
-                <div className="h-1.5 bg-slate-800">
-                  <div className="h-full bg-cyan-300" style={{ width: `${Math.min(100, snapshot.throttle)}%` }} />
-                </div>
-                <span className="text-right font-mono text-slate-300">{snapshot.speed}</span>
-              </div>
-            ))}
-            {telemetry.length === 0 ? <Empty label="No telemetry yet" /> : null}
+          <PanelLabel label="Session Info" />
+          <div className="mt-2 space-y-1.5">
+            <InfoRow label="Type" value={session.name ?? session.type ?? "--"} />
+            <InfoRow label="Status" value={sessionStatus} />
+            {sessionClass === "race" ? (
+              <InfoRow label="Lap" value={lap ? formatNumber(lap) : "--"} />
+            ) : (
+              <InfoRow label="Time Left" value={sessionTimeContext} />
+            )}
+            <InfoRow label="Cars" value={driverCount > 0 ? formatNumber(driverCount) : "--"} />
+            <InfoRow label="Circuit" value={meeting.circuitShortName ?? "--"} />
           </div>
         </div>
       </div>
@@ -95,9 +83,9 @@ export function RaceContextPanel({ raceControlMessages, stints, weather, telemet
   );
 }
 
-function Tab({ label, active = false }: { readonly label: string; readonly active?: boolean }) {
+function Tab({ label }: { readonly label: string }) {
   return (
-    <div className={`flex min-w-0 items-center border-r border-slate-800 px-3 ${active ? "bg-red-950/60 text-red-300" : "bg-[#111925] text-slate-500"}`}>
+    <div className="flex min-w-0 items-center border-r border-slate-800 bg-[#111925] px-3 text-slate-400">
       {label}
     </div>
   );
@@ -116,6 +104,91 @@ function WeatherMetric({ label, value }: { readonly label: string; readonly valu
   );
 }
 
+function InfoRow({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border border-slate-800 bg-[#090d13] px-2 py-1.5 text-xs">
+      <span className="font-bold uppercase text-slate-500">{label}</span>
+      <span className="min-w-0 truncate text-right font-mono text-slate-200">{value}</span>
+    </div>
+  );
+}
+
 function Empty({ label }: { readonly label: string }) {
   return <p className="border border-slate-800 bg-[#090d13] px-2 py-2 text-xs text-slate-500">{label}</p>;
+}
+
+type SessionClass = "race" | "timed" | "unknown";
+
+function classifySessionType(sessionType: string | null | undefined): SessionClass {
+  if (!sessionType) {
+    return "unknown";
+  }
+
+  const normalized = sessionType.toLowerCase();
+
+  if (normalized.includes("race") || normalized === "sprint") {
+    return "race";
+  }
+
+  if (normalized.includes("practice") || normalized.includes("qualifying") || normalized.includes("shootout")) {
+    return "timed";
+  }
+
+  return "unknown";
+}
+
+function getSessionStatus(dateStart: string | null, dateEnd: string | null, now: number): string {
+  const startTime = parseTimestamp(dateStart);
+  const endTime = parseTimestamp(dateEnd);
+
+  if (startTime === null || endTime === null) {
+    return "Unknown";
+  }
+
+  if (now < startTime) {
+    return "Upcoming";
+  }
+
+  if (now > endTime) {
+    return "Ended";
+  }
+
+  return "Live";
+}
+
+function getSessionTimeContext(dateEnd: string | null, now: number): string {
+  const endTime = parseTimestamp(dateEnd);
+
+  if (endTime === null) {
+    return "--";
+  }
+
+  const remainingSeconds = Math.floor((endTime - now) / 1_000);
+
+  if (remainingSeconds <= 0) {
+    return "Ended";
+  }
+
+  return formatDuration(remainingSeconds);
+}
+
+function parseTimestamp(value: string | null): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function formatDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }

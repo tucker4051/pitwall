@@ -200,10 +200,13 @@ export function DashboardShell() {
             />
             <RaceContextPanel
               raceControlMessages={dashboard.raceControlMessages}
-              stints={dashboard.stints}
               weather={dashboard.weather}
-              telemetry={dashboard.telemetry}
+              meeting={dashboard.meeting}
+              session={dashboard.session}
+              lap={dashboard.timing.lap}
+              driverCount={visibleDrivers.length}
               dataMode={dashboard.connection.dataMode}
+              now={now}
             />
           </div>
 
