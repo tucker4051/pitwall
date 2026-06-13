@@ -2,19 +2,33 @@ import { loadConfig } from "./config/env.js";
 import { createOpenF1ContextBootstrap } from "./openf1/openf1-context-bootstrap.js";
 import { createOpenF1Config } from "./openf1/openf1-config.js";
 import { createOpenF1Connector, type OpenF1Connector } from "./openf1/openf1-connector.js";
+import {
+  createOpenF1LiveSessionTransitionManager,
+  type OpenF1SessionMismatchEvent,
+  type OpenF1SessionTransitionManager
+} from "./openf1/openf1-session-transition.js";
 import { createOpenF1TokenManager } from "./openf1/openf1-token-manager.js";
 import { createAppServer } from "./server.js";
 import { attachWebSocketServer } from "./ws/websocket-server.js";
 
 const config = loadConfig();
 const server = createAppServer(config);
-const webSocketServer = attachWebSocketServer(server, { dataMode: config.dataMode });
+let openF1SessionTransitionManager: OpenF1SessionTransitionManager | null = null;
+const webSocketServer = attachWebSocketServer(server, {
+  dataMode: config.dataMode,
+  onOpenF1SessionMismatch: (event: OpenF1SessionMismatchEvent) => {
+    void openF1SessionTransitionManager?.handleSessionMismatch(event);
+  }
+});
 let openF1Connector: OpenF1Connector | null = null;
 
 if (config.dataMode === "live") {
   const openF1Config = createOpenF1Config(config.openF1);
   const tokenManager = createOpenF1TokenManager(openF1Config);
   const contextBootstrap = createOpenF1ContextBootstrap(openF1Config, tokenManager, {
+    onSourceMessage: webSocketServer.processSourceMessage
+  });
+  openF1SessionTransitionManager = createOpenF1LiveSessionTransitionManager(openF1Config, tokenManager, {
     onSourceMessage: webSocketServer.processSourceMessage
   });
   openF1Connector = createOpenF1Connector(openF1Config, tokenManager, {

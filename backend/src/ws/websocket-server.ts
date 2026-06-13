@@ -15,8 +15,16 @@ import {
 } from "../state/state-updater.js";
 import { createDashboardMessageScheduler } from "./dashboard-message-scheduler.js";
 
+export type OpenF1SessionMismatchHandler = (event: {
+  readonly meetingKey: number | null;
+  readonly selectedSessionKey: number | null;
+  readonly candidateSessionKey: number;
+  readonly sourceType: SourceMessage["type"];
+}) => void | Promise<void>;
+
 type WebSocketServerOptions = {
   readonly dataMode: AppConfig["dataMode"];
+  readonly onOpenF1SessionMismatch?: OpenF1SessionMismatchHandler;
 };
 
 export type PitWallWebSocketServer = WebSocketServer & {
@@ -94,7 +102,7 @@ export function attachWebSocketServer(server: Server, options: WebSocketServerOp
       source: routedMessage.message.metadata?.source ?? "unknown"
     });
 
-    if (shouldDropOpenF1ContextMismatch(currentRaceState, routedMessage.message)) {
+    if (shouldDropOpenF1ContextMismatch(currentRaceState, routedMessage.message, options.onOpenF1SessionMismatch)) {
       return;
     }
 
@@ -182,7 +190,8 @@ function sendInitialDashboardSnapshot(
 
 function shouldDropOpenF1ContextMismatch(
   currentRaceState: Parameters<typeof createConnectionDashboardMessage>[0],
-  sourceMessage: SourceMessage
+  sourceMessage: SourceMessage,
+  onOpenF1SessionMismatch: OpenF1SessionMismatchHandler | undefined
 ): boolean {
   if (sourceMessage.metadata?.source !== "openf1") {
     return false;
@@ -211,6 +220,12 @@ function shouldDropOpenF1ContextMismatch(
       sourceType: sourceMessage.type,
       messageSessionKey,
       selectedSessionKey: currentSessionKey
+    });
+    void onOpenF1SessionMismatch?.({
+      meetingKey: currentMeetingKey,
+      selectedSessionKey: currentSessionKey,
+      candidateSessionKey: messageSessionKey,
+      sourceType: sourceMessage.type
     });
     return true;
   }
