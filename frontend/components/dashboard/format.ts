@@ -26,6 +26,20 @@ export function formatNumber(value: number | null | undefined, fallback = "--"):
   return typeof value === "number" && Number.isFinite(value) ? String(value) : fallback;
 }
 
+export function formatLapDuration(seconds: number | null | undefined): string {
+  if (seconds === undefined || seconds === null || !Number.isFinite(seconds) || seconds <= 0) {
+    return "--";
+  }
+
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds - minutes * 60;
+    return `${minutes}:${remainingSeconds.toFixed(3).padStart(6, "0")}`;
+  }
+
+  return seconds.toFixed(3);
+}
+
 export function getCompoundClassName(compound: string | undefined): string {
   switch (compound) {
     case "soft":

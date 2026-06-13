@@ -115,7 +115,8 @@ function mapDriverMessage(
             broadcastName: readOptionalString(payload.broadcast_name),
             fullName: readOptionalString(payload.full_name),
             teamName: readOptionalString(payload.team_name),
-            teamColour: readOptionalString(payload.team_colour)
+            teamColour: readOptionalString(payload.team_colour),
+            headshotUrl: readOptionalString(payload.headshot_url)
           }
         ]
       }

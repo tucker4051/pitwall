@@ -51,6 +51,7 @@ export type TimingDriver = {
   readonly broadcastName?: string;
   readonly teamName?: string;
   readonly teamColour?: string;
+  readonly headshotUrl?: string;
   readonly gapToLeader: string;
   readonly intervalToAhead?: string;
   readonly lastLapTime?: string;

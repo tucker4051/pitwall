@@ -183,7 +183,8 @@ function parseOpenF1Driver(value: unknown): OpenF1InternalDriver | null {
     broadcastName: readOptionalString(value.broadcast_name),
     fullName: readOptionalString(value.full_name),
     teamName: readOptionalString(value.team_name),
-    teamColour: readOptionalString(value.team_colour)
+    teamColour: readOptionalString(value.team_colour),
+    headshotUrl: readOptionalString(value.headshot_url)
   };
 }
 

@@ -208,7 +208,12 @@ export function DashboardShell() {
           </div>
 
           <div className="min-h-0">
-            <DriverFocusPanel driver={selectedTimingDriver} stint={selectedStint} telemetry={selectedTelemetry} />
+            <DriverFocusPanel
+              driver={selectedTimingDriver}
+              timingColumnHeader={timingTowerRowsResult.timingColumnHeader}
+              stint={selectedStint}
+              telemetry={selectedTelemetry}
+            />
           </div>
 
           <div className="fixed bottom-3 right-3 z-30 w-[420px] max-w-[calc(100vw-24px)]">

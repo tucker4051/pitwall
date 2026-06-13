@@ -222,6 +222,7 @@ export type OpenF1InternalDriver = {
   readonly broadcastName?: string;
   readonly teamName?: string;
   readonly teamColour?: string;
+  readonly headshotUrl?: string;
 };
 
 export type OpenF1InternalMeeting = {

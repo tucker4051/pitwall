@@ -1,16 +1,25 @@
+"use client";
+
+import { useState } from "react";
+
 import { getDriverIdentity } from "./driver-identity";
-import { getCompoundClassName } from "./format";
+import { formatLapDuration, getCompoundClassName } from "./format";
 import { getTeamFocusAccentStyle, getTeamStripStyle } from "./team-colours";
+import type { TimingTowerRow, TimingTowerRowsResult } from "./timing-tower-data";
 import type { TelemetrySnapshot, TimingDriver, TyreStint } from "./types";
 
 type DriverFocusPanelProps = {
-  readonly driver: TimingDriver | null;
+  readonly driver: TimingTowerRow | null;
+  readonly timingColumnHeader: TimingTowerRowsResult["timingColumnHeader"];
   readonly stint: TyreStint | null;
   readonly telemetry: TelemetrySnapshot | null;
 };
 
-export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelProps) {
+export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry }: DriverFocusPanelProps) {
   const identity = getDriverIdentity(driver);
+  const displayAcronym = getSafeDriverDisplayLabel(driver, identity.displayAcronym);
+  const metrics = getDriverFocusMetrics(driver, timingColumnHeader);
+  const teamAccent = identity.teamProfile.visibleAccent;
 
   return (
     <section className="flex h-full min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
@@ -28,19 +37,29 @@ export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelP
         ) : null}
 
         <div className="border-l-2 pl-3" style={getTeamFocusAccentStyle(identity.teamProfile)}>
-          <div className="mb-3 flex items-center gap-2">
-            <span className="h-4 w-1.5 border" style={getTeamStripStyle(identity.teamProfile)} />
-            <span className="font-mono text-[10px] uppercase text-slate-500">{identity.teamProfile.displayName}</span>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="h-4 w-1.5 border" style={getTeamStripStyle(identity.teamProfile)} />
+                <span className="font-mono text-[10px] uppercase text-slate-500">{identity.teamProfile.displayName}</span>
+              </div>
+              <p className="font-mono text-5xl font-black text-slate-100">{displayAcronym}</p>
+              <p className="mt-1 truncate text-xs uppercase text-slate-500">{driver?.fullName ?? "Selected driver"}</p>
+              <p className="truncate text-xs uppercase text-slate-400">{identity.teamName}</p>
+            </div>
+            <DriverHeadshot
+              acronym={displayAcronym}
+              fullName={driver?.fullName}
+              headshotUrl={driver?.headshotUrl}
+              teamAccent={teamAccent}
+            />
           </div>
-          <p className="font-mono text-5xl font-black text-slate-100">{identity.displayAcronym}</p>
-          <p className="mt-1 text-xs uppercase text-slate-500">{driver?.fullName ?? "Selected driver"}</p>
-          <p className="text-xs uppercase text-slate-400">{identity.teamName}</p>
         </div>
 
         <div className="grid grid-cols-3 border border-slate-800">
-          <Metric label="Pos" value={driver ? `P${driver.position}` : "--"} />
-          <Metric label="Gap" value={driver?.gapToLeader || "--"} />
-          <Metric label="Int" value={driver?.intervalToAhead ?? "--"} />
+          {metrics.map((metric) => (
+            <Metric key={metric.label} label={metric.label} value={metric.value} detail={metric.detail} />
+          ))}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -86,13 +105,120 @@ export function DriverFocusPanel({ driver, stint, telemetry }: DriverFocusPanelP
   );
 }
 
-function Metric({ label, value }: { readonly label: string; readonly value: string }) {
+function DriverHeadshot({
+  acronym,
+  fullName,
+  headshotUrl,
+  teamAccent
+}: {
+  readonly acronym: string;
+  readonly fullName: string | undefined;
+  readonly headshotUrl: string | undefined;
+  readonly teamAccent: string;
+}) {
+  const [failedHeadshotUrl, setFailedHeadshotUrl] = useState<string | null>(null);
+
+  const shouldShowImage = Boolean(headshotUrl && failedHeadshotUrl !== headshotUrl);
+
+  return (
+    <div
+      className="flex h-24 w-24 shrink-0 items-end justify-center overflow-hidden border border-slate-800 bg-[#070b11]"
+      style={{
+        borderColor: `${teamAccent}66`,
+        boxShadow: `inset 0 -18px 34px ${teamAccent}22`
+      }}
+    >
+      {shouldShowImage ? (
+        <img
+          src={headshotUrl}
+          alt={fullName ? `${fullName} headshot` : "Selected driver headshot"}
+          className="h-full w-full object-contain object-bottom"
+          onError={() => {
+            if (headshotUrl) {
+              setFailedHeadshotUrl(headshotUrl);
+            }
+          }}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-slate-950/70">
+          <span className="font-mono text-2xl font-black uppercase text-slate-500">{acronym}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  detail
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly detail?: string;
+}) {
   return (
     <div className="border-r border-slate-800 p-3 last:border-r-0">
       <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
       <p className="mt-1 font-mono text-lg font-bold tabular-nums text-slate-100">{value}</p>
+      {detail ? <p className="font-mono text-[10px] uppercase text-slate-500">{detail}</p> : null}
     </div>
   );
+}
+
+function getDriverFocusMetrics(
+  driver: TimingTowerRow | null,
+  timingColumnHeader: TimingTowerRowsResult["timingColumnHeader"]
+): readonly { readonly label: string; readonly value: string; readonly detail?: string }[] {
+  if (!driver) {
+    return [
+      { label: timingColumnHeader === "BEST" ? "Rank" : "Pos", value: "--" },
+      { label: timingColumnHeader === "INT" ? "Int" : "Best lap", value: "--" },
+      { label: timingColumnHeader === "INT" ? "Gap" : "Last lap", value: "--" }
+    ];
+  }
+
+  if (timingColumnHeader === "BEST") {
+    return [
+      { label: "Rank", value: driver.displayPosition === "--" ? "--" : `P${driver.displayPosition}` },
+      { label: "Best lap", value: driver.displayTimingValue },
+      {
+        label: "Last lap",
+        value: formatLapDuration(driver.latestLapDuration),
+        detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
+      }
+    ];
+  }
+
+  if (timingColumnHeader === "INT") {
+    return [
+      { label: "Pos", value: formatRacePosition(driver) },
+      { label: "Int", value: driver.displayTimingValue },
+      { label: "Gap", value: driver.gapToLeader || "--" }
+    ];
+  }
+
+  return [
+    { label: "Pos", value: formatRacePosition(driver) },
+    { label: "Best lap", value: driver.bestLapTime ?? formatLapDuration(driver.bestLapDuration) },
+    {
+      label: "Last lap",
+      value: formatLapDuration(driver.latestLapDuration),
+      detail: driver.latestLapNumber ? `Lap ${driver.latestLapNumber}` : undefined
+    }
+  ];
+}
+
+function formatRacePosition(driver: TimingDriver): string {
+  return Number.isFinite(driver.position) && driver.position > 0 && driver.position !== Number.MAX_SAFE_INTEGER
+    ? `P${driver.position}`
+    : "--";
+}
+
+function getSafeDriverDisplayLabel(driver: TimingTowerRow | null, fallback: string): string {
+  const label = driver?.displayLabel ?? fallback;
+
+  return /^#?\d+$/.test(label.trim()) ? "---" : label;
 }
 
 function Telemetry({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit: string }) {

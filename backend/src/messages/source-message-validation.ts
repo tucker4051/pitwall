@@ -241,7 +241,8 @@ function validateOpenF1DriversMessage(message: Record<string, unknown>): SourceM
       isNumber(driver.driverNumber) &&
       isString(driver.abbreviation) &&
       optionalString(driver.fullName) &&
-      optionalString(driver.teamName)
+      optionalString(driver.teamName) &&
+      optionalString(driver.headshotUrl)
   );
 
   return driversAreValid ? valid(message as SourceMessage) : invalid("openf1:drivers drivers are malformed");

@@ -1,4 +1,5 @@
 import type { ConnectionState, MeetingState, SessionState, TimingDriver } from "./types";
+import { formatLapDuration } from "./format";
 
 export type TimingTowerRow = TimingDriver & {
   readonly rowKey: string;
@@ -154,6 +155,7 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
     fullName: nextDriver.fullName ?? existingDriver.fullName,
     teamName: nextDriver.teamName ?? existingDriver.teamName,
     teamColour: nextDriver.teamColour ?? existingDriver.teamColour,
+    headshotUrl: nextDriver.headshotUrl ?? existingDriver.headshotUrl,
     gapToLeader: nextDriver.gapToLeader || existingDriver.gapToLeader || "--",
     intervalToAhead: nextDriver.intervalToAhead ?? existingDriver.intervalToAhead,
     intervalUpdatedAt: nextDriver.intervalUpdatedAt ?? existingDriver.intervalUpdatedAt,
@@ -381,18 +383,4 @@ function getTimingDisplayValue(driver: TimingDriver, timingDisplayMode: TimingDi
   }
 
   return "--";
-}
-
-function formatLapDuration(seconds: number | undefined): string {
-  if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
-    return "--";
-  }
-
-  if (seconds >= 60) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds - minutes * 60;
-    return `${minutes}:${remainingSeconds.toFixed(3).padStart(6, "0")}`;
-  }
-
-  return seconds.toFixed(3);
 }
