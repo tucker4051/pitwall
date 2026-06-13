@@ -65,12 +65,7 @@ export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry 
         <div className="grid grid-cols-2 gap-2">
           <div className="border border-slate-800 bg-[#090d13] p-3">
             <p className="text-[10px] font-bold uppercase text-slate-500">Tyre stint</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className={`border px-2 py-1 text-[10px] font-bold uppercase ${getCompoundClassName(stint?.compound)}`}>
-                {stint?.compound ?? "---"}
-              </span>
-              <span className="font-mono text-sm text-slate-200">{stint ? `${stint.stintAgeLaps} laps` : "--"}</span>
-            </div>
+            <TyreStintSummary stint={stint} latestLapNumber={driver?.latestLapNumber} />
           </div>
           <div className="border border-slate-800 bg-[#090d13] p-3">
             <p className="text-[10px] font-bold uppercase text-slate-500">Lap info</p>
@@ -93,12 +88,6 @@ export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry 
             <Bar label="Throttle" value={telemetry?.throttle ?? 0} tone="cyan" />
             <Bar label="Brake" value={telemetry?.brake ? 100 : 0} tone="red" />
           </div>
-        </div>
-
-        <div className="grid gap-2">
-          <AnalysisStrip label="Sector delta" value="+0.084" tone="amber" />
-          <AnalysisStrip label="Battery state" value="Deploy" tone="cyan" />
-          <AnalysisStrip label="Track status" value="Clear air" tone="green" />
         </div>
       </div>
     </section>
@@ -221,6 +210,79 @@ function getSafeDriverDisplayLabel(driver: TimingTowerRow | null, fallback: stri
   return /^#?\d+$/.test(label.trim()) ? "---" : label;
 }
 
+function TyreStintSummary({
+  stint,
+  latestLapNumber
+}: {
+  readonly stint: TyreStint | null;
+  readonly latestLapNumber: number | undefined;
+}) {
+  if (!stint) {
+    return (
+      <div className="mt-2">
+        <p className="text-xs font-bold uppercase text-slate-400">No stint data</p>
+        <p className="mt-1 text-[10px] uppercase text-slate-600">Waiting for OpenF1 stints</p>
+      </div>
+    );
+  }
+
+  const age = calculateDisplayTyreAge(stint, latestLapNumber);
+  const lapRange = formatLapRange(stint);
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className={`border px-2 py-1 text-[10px] font-bold uppercase ${getCompoundClassName(stint.compound)}`}>
+          {stint.compound ?? "---"}
+        </span>
+        <span className="font-mono text-[11px] uppercase text-slate-400">Stint {stint.stintNumber}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 font-mono text-[11px] uppercase">
+        <div>
+          <p className="text-[9px] font-bold text-slate-600">Age</p>
+          <p className="text-slate-200">{age}</p>
+        </div>
+        <div>
+          <p className="text-[9px] font-bold text-slate-600">Laps</p>
+          <p className="text-slate-200">{lapRange}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function calculateDisplayTyreAge(stint: TyreStint, latestLapNumber: number | undefined): string {
+  const ageFromCompletedRange =
+    stint.lapStart !== undefined && stint.lapEnd !== undefined && stint.lapEnd >= stint.lapStart
+      ? (stint.tyreAgeAtStart ?? 0) + (stint.lapEnd - stint.lapStart + 1)
+      : null;
+
+  const ageFromLatestLap =
+    stint.lapStart !== undefined && latestLapNumber !== undefined && latestLapNumber >= stint.lapStart
+      ? (stint.tyreAgeAtStart ?? 0) + (latestLapNumber - stint.lapStart + 1)
+      : null;
+
+  const age = ageFromCompletedRange ?? ageFromLatestLap ?? stint.tyreAgeAtStart ?? stint.stintAgeLaps;
+
+  return Number.isFinite(age) && age >= 0 ? `${age} laps` : "--";
+}
+
+function formatLapRange(stint: TyreStint): string {
+  if (stint.lapStart !== undefined && stint.lapEnd !== undefined) {
+    return `${stint.lapStart}-${stint.lapEnd}`;
+  }
+
+  if (stint.lapStart !== undefined) {
+    return `${stint.lapStart}-now`;
+  }
+
+  if (stint.lapEnd !== undefined) {
+    return `--${stint.lapEnd}`;
+  }
+
+  return "--";
+}
+
 function Telemetry({ label, value, unit }: { readonly label: string; readonly value: string; readonly unit: string }) {
   return (
     <div>
@@ -242,18 +304,6 @@ function Bar({ label, value, tone }: { readonly label: string; readonly value: n
       <div className="h-1.5 bg-slate-800">
         <div className={`h-full ${tone === "cyan" ? "bg-cyan-300" : "bg-red-500"}`} style={{ width: `${Math.min(100, value)}%` }} />
       </div>
-    </div>
-  );
-}
-
-function AnalysisStrip({ label, value, tone }: { readonly label: string; readonly value: string; readonly tone: "amber" | "cyan" | "green" }) {
-  const toneClassName =
-    tone === "amber" ? "text-amber-300" : tone === "cyan" ? "text-cyan-300" : "text-emerald-300";
-
-  return (
-    <div className="flex items-center justify-between border border-slate-800 bg-[#090d13] px-3 py-2 text-xs">
-      <span className="font-bold uppercase text-slate-500">{label}</span>
-      <span className={`font-mono font-bold ${toneClassName}`}>{value}</span>
     </div>
   );
 }

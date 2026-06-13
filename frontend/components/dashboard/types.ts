@@ -110,6 +110,9 @@ export type TyreStint = {
   readonly stintNumber: number;
   readonly stintAgeLaps: number;
   readonly pitStops: number;
+  readonly lapStart?: number;
+  readonly lapEnd?: number;
+  readonly tyreAgeAtStart?: number;
   readonly updatedAt: string;
 };
 

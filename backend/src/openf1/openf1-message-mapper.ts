@@ -403,6 +403,9 @@ function mapStintMessage(
   }
 
   const recordedAt = receivedAt.toISOString();
+  const lapStart = readOptionalNumber(payload.lap_start);
+  const lapEnd = readOptionalNumber(payload.lap_end);
+  const tyreAgeAtStart = payload.tyre_age_at_start;
 
   return {
     mapped: true,
@@ -416,8 +419,11 @@ function mapStintMessage(
             driverNumber: payload.driver_number,
             compound,
             stintNumber: payload.stint_number,
-            stintAgeLaps: payload.tyre_age_at_start,
-            pitStops: Math.max(0, payload.stint_number - 1)
+            stintAgeLaps: calculateStintAgeLaps(tyreAgeAtStart, lapStart, lapEnd),
+            pitStops: Math.max(0, payload.stint_number - 1),
+            lapStart,
+            lapEnd,
+            tyreAgeAtStart
           }
         ]
       }
@@ -458,6 +464,14 @@ function mapPitMessage(
       }
     }
   };
+}
+
+function calculateStintAgeLaps(tyreAgeAtStart: number, lapStart: number | undefined, lapEnd: number | undefined): number {
+  if (lapStart !== undefined && lapEnd !== undefined && lapEnd >= lapStart) {
+    return tyreAgeAtStart + (lapEnd - lapStart + 1);
+  }
+
+  return tyreAgeAtStart;
 }
 
 function createMetadata<TTopic extends OpenF1MappedTopic>(
@@ -519,15 +533,27 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | undefined {
+function readOptionalNumber(value: unknown): number | undefined {
+  return isNumber(value) ? value : undefined;
+}
+
+function normalizeCompound(value: unknown): "soft" | "medium" | "hard" | "intermediate" | "wet" | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
-  const normalized = value.toLowerCase();
+  const normalized = value.toLowerCase().replace(/[^a-z]/g, "");
 
   if (normalized === "soft" || normalized === "medium" || normalized === "hard") {
     return normalized;
+  }
+
+  if (normalized === "intermediate" || normalized === "intermediates") {
+    return "intermediate";
+  }
+
+  if (normalized === "wet" || normalized === "wets") {
+    return "wet";
   }
 
   return undefined;

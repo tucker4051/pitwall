@@ -338,10 +338,26 @@ function formatMessage(data: unknown): string {
 
 function findStint(stints: readonly TyreStint[], driver: TimingDriver): TyreStint | null {
   if (driver.driverNumber) {
-    return stints.find((stint) => stint.driverNumber === driver.driverNumber) ?? null;
+    return chooseLatestStint(stints.filter((stint) => stint.driverNumber === driver.driverNumber));
   }
 
-  return stints[driver.position - 1] ?? null;
+  return chooseLatestStint([stints[driver.position - 1]].filter((stint): stint is TyreStint => Boolean(stint)));
+}
+
+function chooseLatestStint(stints: readonly TyreStint[]): TyreStint | null {
+  return (
+    [...stints].sort((left, right) => {
+      if (left.stintNumber !== right.stintNumber) {
+        return right.stintNumber - left.stintNumber;
+      }
+
+      return getStintLapSortValue(right) - getStintLapSortValue(left);
+    })[0] ?? null
+  );
+}
+
+function getStintLapSortValue(stint: TyreStint): number {
+  return stint.lapEnd ?? stint.lapStart ?? 0;
 }
 
 function findTelemetry(telemetry: readonly TelemetrySnapshot[], driver: TimingDriver): TelemetrySnapshot | null {

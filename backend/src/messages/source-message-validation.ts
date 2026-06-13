@@ -222,7 +222,10 @@ function validateTyreStintMessage(message: Record<string, unknown>): SourceMessa
       isMockTyreCompound(stint.compound) &&
       isNumber(stint.stintNumber) &&
       isNumber(stint.stintAgeLaps) &&
-      isNumber(stint.pitStops)
+      isNumber(stint.pitStops) &&
+      optionalNumber(stint.lapStart) &&
+      optionalNumber(stint.lapEnd) &&
+      optionalNumber(stint.tyreAgeAtStart)
   );
 
   return stintsAreValid ? valid(message as SourceMessage) : invalid("mock:tyre-stint stints are malformed");

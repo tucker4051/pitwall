@@ -204,7 +204,7 @@ export type MockTelemetrySnapshot = {
   readonly rpm: number;
 };
 
-export type MockTyreCompound = "soft" | "medium" | "hard";
+export type MockTyreCompound = "soft" | "medium" | "hard" | "intermediate" | "wet";
 
 export type MockTyreStint = {
   readonly driverNumber: number;
@@ -212,6 +212,9 @@ export type MockTyreStint = {
   readonly stintNumber: number;
   readonly stintAgeLaps: number;
   readonly pitStops: number;
+  readonly lapStart?: number;
+  readonly lapEnd?: number;
+  readonly tyreAgeAtStart?: number;
 };
 
 export type OpenF1InternalDriver = {

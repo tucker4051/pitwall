@@ -164,5 +164,9 @@ function nextCompound(compound: MockTyreCompound): MockTyreCompound {
       return "hard";
     case "hard":
       return "medium";
+    case "intermediate":
+      return "wet";
+    case "wet":
+      return "intermediate";
   }
 }
