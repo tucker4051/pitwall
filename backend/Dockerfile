@@ -1,5 +1,7 @@
 FROM node:22-alpine AS development
 
+RUN apk upgrade --no-cache
+
 WORKDIR /app
 
 ENV NODE_ENV=development
