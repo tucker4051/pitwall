@@ -5,11 +5,15 @@ import { useEffect, useState } from "react";
 import { loadCircuitInfo } from "./track-map/circuit-info-loader";
 import type { CircuitInfoLoadState } from "./track-map/circuit-info-types";
 import { CircuitSvgRenderer } from "./track-map/circuit-svg-renderer";
-import type { DashboardDataMode, MeetingState } from "./types";
+import { DriverMarkerLayer } from "./track-map/driver-marker-layer";
+import type { DashboardDataMode, MeetingState, TimingDriver, TrackPosition } from "./types";
 
 type TrackMapPanelProps = {
   readonly meeting: MeetingState;
   readonly dataMode: DashboardDataMode;
+  readonly positions: readonly TrackPosition[];
+  readonly drivers: readonly TimingDriver[];
+  readonly selectedDriverNumber?: number;
 };
 
 const INITIAL_LOAD_STATE: CircuitInfoLoadState = {
@@ -19,7 +23,7 @@ const INITIAL_LOAD_STATE: CircuitInfoLoadState = {
 
 const CIRCUIT_INFO_TIMEOUT_MS = 4_000;
 
-export function TrackMapPanel({ meeting, dataMode }: TrackMapPanelProps) {
+export function TrackMapPanel({ meeting, dataMode, positions, drivers, selectedDriverNumber }: TrackMapPanelProps) {
   const [loadedCircuitInfo, setLoadedCircuitInfo] = useState<{
     readonly url: string;
     readonly loadState: CircuitInfoLoadState;
@@ -126,6 +130,17 @@ export function TrackMapPanel({ meeting, dataMode }: TrackMapPanelProps) {
             <CircuitSvgRenderer circuitInfo={loadState.circuitInfo} />
           </div>
         ) : null}
+        {loadState.status === "ready" ? (
+          <div className="absolute inset-0 z-20">
+            <DriverMarkerLayer
+              circuitInfo={loadState.circuitInfo}
+              positions={positions}
+              drivers={drivers}
+              selectedDriverNumber={selectedDriverNumber}
+            />
+          </div>
+        ) : null}
+        {loadState.status === "ready" && positions.length === 0 ? <TrackPanelNote title="Waiting for driver locations" /> : null}
         {shouldRenderImageFallback && meeting.circuitImage ? (
           <CircuitImageFallback
             imageUrl={meeting.circuitImage}
@@ -195,6 +210,14 @@ function TrackPanelState({ title }: { readonly title: string }) {
       <div className="border border-slate-800 bg-[#0b1119]/90 px-4 py-3 text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-300">{title}</p>
       </div>
+    </div>
+  );
+}
+
+function TrackPanelNote({ title }: { readonly title: string }) {
+  return (
+    <div className="absolute bottom-3 right-3 z-30 border border-slate-800 bg-[#0b1119]/85 px-2 py-1">
+      <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-slate-500">{title}</p>
     </div>
   );
 }

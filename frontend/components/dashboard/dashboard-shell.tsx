@@ -194,6 +194,9 @@ export function DashboardShell() {
             <TrackMapPanel
               meeting={dashboard.meeting}
               dataMode={dashboard.connection.dataMode}
+              positions={dashboard.trackPositions}
+              drivers={visibleDrivers}
+              selectedDriverNumber={selectedTimingDriver?.driverNumber}
             />
             <RaceContextPanel
               raceControlMessages={dashboard.raceControlMessages}

@@ -10,7 +10,18 @@ export function normaliseTrackPoints(points: readonly CircuitTrackPoint[]): read
     return [];
   }
 
-  const bounds = points.reduce(
+  return normaliseTrackPointsToReference(points, points);
+}
+
+export function normaliseTrackPointsToReference(
+  points: readonly CircuitTrackPoint[],
+  referencePoints: readonly CircuitTrackPoint[]
+): readonly NormalisedTrackPoint[] {
+  if (points.length === 0 || referencePoints.length === 0) {
+    return [];
+  }
+
+  const bounds = referencePoints.reduce(
     (currentBounds, point) => ({
       minX: Math.min(currentBounds.minX, point.x),
       maxX: Math.max(currentBounds.maxX, point.x),
