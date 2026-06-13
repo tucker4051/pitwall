@@ -75,7 +75,7 @@ export function DashboardShell() {
   const webSocketUrl = useMemo(() => process.env.NEXT_PUBLIC_BACKEND_WS_URL ?? "ws://localhost:3001/ws", []);
   const [dashboard, setDashboard] = useState<DashboardState>(INITIAL_DASHBOARD_STATE);
   const [socketStatus, setSocketStatus] = useState<ConnectionStatus>("connecting");
-  const [selectedDriverKey, setSelectedDriverKey] = useState("driver-1");
+  const [selectedDriverKey, setSelectedDriverKey] = useState<string | null>(null);
   const [debugMessages, setDebugMessages] = useState<readonly string[]>([]);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [now, setNow] = useState(0);
@@ -169,11 +169,10 @@ export function DashboardShell() {
     stints: dashboard.stints
   });
   const visibleDrivers = timingTowerRowsResult.rows;
-  const effectiveSelectedDriverKey = visibleDrivers.some((driver) => driver.rowKey === selectedDriverKey)
-    ? selectedDriverKey
-    : (visibleDrivers[0]?.rowKey ?? selectedDriverKey);
   const selectedTimingDriver =
-    visibleDrivers.find((driver) => driver.rowKey === effectiveSelectedDriverKey) ?? visibleDrivers[0] ?? null;
+    selectedDriverKey && visibleDrivers.some((driver) => driver.rowKey === selectedDriverKey)
+      ? (visibleDrivers.find((driver) => driver.rowKey === selectedDriverKey) ?? null)
+      : null;
   const selectedStint = selectedTimingDriver ? findStint(dashboard.stints, selectedTimingDriver) : null;
   const selectedTelemetry = selectedTimingDriver ? findTelemetry(dashboard.telemetry, selectedTimingDriver) : null;
 
@@ -186,8 +185,9 @@ export function DashboardShell() {
           <div className="min-h-0">
             <TimingTowerPanel
               rowsResult={timingTowerRowsResult}
-              selectedDriverKey={selectedTimingDriver?.rowKey ?? effectiveSelectedDriverKey}
+              selectedDriverKey={selectedTimingDriver?.rowKey ?? null}
               onSelectDriver={(driver) => setSelectedDriverKey(driver.rowKey)}
+              onClearSelectedDriver={() => setSelectedDriverKey(null)}
             />
           </div>
 

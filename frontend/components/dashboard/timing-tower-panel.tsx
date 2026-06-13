@@ -4,16 +4,25 @@ import type { TimingTowerRow, TimingTowerRowsResult } from "./timing-tower-data"
 
 type TimingTowerPanelProps = {
   readonly rowsResult: TimingTowerRowsResult;
-  readonly selectedDriverKey: string;
+  readonly selectedDriverKey: string | null;
   readonly onSelectDriver: (row: TimingTowerRow) => void;
+  readonly onClearSelectedDriver: () => void;
 };
 
-export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver }: TimingTowerPanelProps) {
+export function TimingTowerPanel({
+  rowsResult,
+  selectedDriverKey,
+  onSelectDriver,
+  onClearSelectedDriver
+}: TimingTowerPanelProps) {
   const visibleDrivers = rowsResult.rows;
   const metadataPendingCount = visibleDrivers.filter((driver) => !driver.hasDriverMetadata).length;
 
   return (
-    <section className="flex h-full min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
+    <section
+      className="flex h-full min-h-0 flex-col border border-slate-800 bg-[#0b1119]"
+      onClick={onClearSelectedDriver}
+    >
       <div className="flex h-10 items-center justify-between border-b border-slate-800 px-3">
         <h2 className="text-[11px] font-bold uppercase text-slate-300">Timing tower</h2>
         <span className="font-mono text-[11px] text-slate-500">{visibleDrivers.length || "--"} cars</span>
@@ -38,7 +47,10 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
             <button
               key={driver.rowKey}
               type="button"
-              onClick={() => onSelectDriver(driver)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelectDriver(driver);
+              }}
               className={`grid h-[27px] w-full grid-cols-[34px_1fr_66px_42px] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
                 selected ? "bg-cyan-400/10 text-cyan-100" : "bg-transparent text-slate-300 hover:bg-slate-900"
               }`}

@@ -16,6 +16,24 @@ type DriverFocusPanelProps = {
 };
 
 export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry }: DriverFocusPanelProps) {
+  if (!driver) {
+    return (
+      <section className="flex h-full min-h-0 flex-col border border-slate-800 bg-[#0b1119]">
+        <div className="flex h-10 items-center justify-between border-b border-slate-800 px-3">
+          <h2 className="text-[11px] font-bold uppercase text-slate-300">Driver focus</h2>
+          <span className="font-mono text-[11px] text-slate-500">None</span>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <div className="border border-slate-800 bg-[#090d13] px-3 py-4">
+            <p className="text-[11px] font-bold uppercase text-slate-300">Select a driver</p>
+            <p className="mt-1 text-xs text-slate-500">Choose a driver from the timing tower to inspect live details.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   const identity = getDriverIdentity(driver);
   const displayAcronym = getSafeDriverDisplayLabel(driver, identity.displayAcronym);
   const metrics = getDriverFocusMetrics(driver, timingColumnHeader);
@@ -29,13 +47,6 @@ export function DriverFocusPanel({ driver, timingColumnHeader, stint, telemetry 
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
-        {!driver ? (
-          <div className="border border-slate-800 bg-[#090d13] px-3 py-4">
-            <p className="text-[11px] font-bold uppercase text-slate-300">Waiting for driver data</p>
-            <p className="mt-1 text-xs text-slate-500">Select a driver once live timing or driver metadata arrives.</p>
-          </div>
-        ) : null}
-
         <div className="border-l-2 pl-3" style={getTeamFocusAccentStyle(identity.teamProfile)}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
