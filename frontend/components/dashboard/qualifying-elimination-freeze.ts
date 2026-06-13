@@ -1,15 +1,26 @@
 import { isQualifyingStyleSession } from "./session-classification";
 import { buildTimingTowerRows, type TimingTowerRow, type TimingTowerRowsResult } from "./timing-tower-data";
-import type { DashboardState, MeetingState, SessionState } from "./types";
+import type { DashboardState, MeetingState, SessionState, TimingDriver } from "./types";
+import { formatLapDuration } from "./format";
 
 type FrozenQualifyingRow = {
   readonly row: TimingTowerRow;
   readonly eliminatedInPhase: 1 | 2;
 };
 
+type PhaseBestLap = {
+  readonly driverNumber: number;
+  readonly lapDuration: number;
+  readonly lapNumber?: number;
+  readonly lapUpdatedAt?: string;
+};
+
+type PhaseBestLapState = Readonly<Record<1 | 2 | 3, readonly PhaseBestLap[]>>;
+
 export type QualifyingFreezeState = {
   readonly scopeKey: string;
   readonly frozenRows: readonly FrozenQualifyingRow[];
+  readonly phaseBestLaps: PhaseBestLapState;
 };
 
 export type QualifyingEliminationResult = {
@@ -19,7 +30,8 @@ export type QualifyingEliminationResult = {
 
 export const INITIAL_QUALIFYING_FREEZE_STATE: QualifyingFreezeState = {
   scopeKey: "no-meeting:no-session",
-  frozenRows: []
+  frozenRows: [],
+  phaseBestLaps: createEmptyPhaseBestLaps()
 };
 
 const EMPTY_ELIMINATED_ROW_KEYS = new Set<string>();
@@ -40,18 +52,26 @@ export function reduceQualifyingFreezeState({
   if (!isNextQualifyingSession || nextPhase === null || freezeState.scopeKey !== nextScopeKey) {
     return {
       scopeKey: nextScopeKey,
-      frozenRows: []
+      frozenRows: [],
+      phaseBestLaps: createEmptyPhaseBestLaps()
     };
   }
 
   const currentPhase = currentDashboard.session.qualifyingPhase;
   const isCurrentQualifyingSession = isQualifyingStyleSession(currentDashboard.session.type, currentDashboard.session.name);
+  const phaseBestLaps = updatePhaseBestLaps(freezeState.phaseBestLaps, currentDashboard, nextDashboard, nextPhase);
 
   if (!isCurrentQualifyingSession) {
-    return freezeState;
+    return {
+      ...freezeState,
+      phaseBestLaps
+    };
   }
 
-  const currentRowsResult = buildTimingTowerRowsForDashboard(currentDashboard);
+  const currentRowsResult = buildTimingTowerRowsForDashboard(currentDashboard, {
+    ...freezeState,
+    phaseBestLaps
+  });
   const currentRows = applyQualifyingFreeze(currentRowsResult, freezeState, currentDashboard.session).rowsResult.rows;
 
   // TODO: Reconstruct missed Q1/Q2 eliminations from reliable REST/session result data
@@ -59,18 +79,23 @@ export function reduceQualifyingFreezeState({
   if (currentPhase === 1 && nextPhase === 2) {
     return {
       scopeKey: nextScopeKey,
-      frozenRows: mergeFrozenRows(freezeState.frozenRows, freezeRows(currentRows, 17, 22, 1))
+      frozenRows: mergeFrozenRows(freezeState.frozenRows, freezeRows(currentRows, 17, 22, 1)),
+      phaseBestLaps
     };
   }
 
   if (currentPhase === 2 && nextPhase === 3) {
     return {
       scopeKey: nextScopeKey,
-      frozenRows: mergeFrozenRows(freezeState.frozenRows, freezeRows(currentRows, 11, 16, 2))
+      frozenRows: mergeFrozenRows(freezeState.frozenRows, freezeRows(currentRows, 11, 16, 2)),
+      phaseBestLaps
     };
   }
 
-  return freezeState;
+  return {
+    ...freezeState,
+    phaseBestLaps
+  };
 }
 
 export function applyQualifyingFreeze(
@@ -96,16 +121,60 @@ export function applyQualifyingFreeze(
   };
 }
 
-export function buildTimingTowerRowsForDashboard(dashboard: DashboardState): TimingTowerRowsResult {
+export function buildTimingTowerRowsForDashboard(dashboard: DashboardState, freezeState?: QualifyingFreezeState): TimingTowerRowsResult {
+  const phaseAdjustedDashboard = freezeState ? applyQualifyingPhaseBestLaps(dashboard, freezeState) : dashboard;
+
   return buildTimingTowerRows({
-    dataMode: dashboard.connection.dataMode,
-    meeting: dashboard.meeting,
-    session: dashboard.session,
-    connection: dashboard.connection,
-    drivers: dashboard.drivers,
-    timingDrivers: dashboard.timing.drivers,
-    stints: dashboard.stints
+    dataMode: phaseAdjustedDashboard.connection.dataMode,
+    meeting: phaseAdjustedDashboard.meeting,
+    session: phaseAdjustedDashboard.session,
+    connection: phaseAdjustedDashboard.connection,
+    drivers: phaseAdjustedDashboard.drivers,
+    timingDrivers: phaseAdjustedDashboard.timing.drivers,
+    stints: phaseAdjustedDashboard.stints
   });
+}
+
+function applyQualifyingPhaseBestLaps(dashboard: DashboardState, freezeState: QualifyingFreezeState): DashboardState {
+  const phase = dashboard.session.qualifyingPhase;
+
+  if (!phase || !isQualifyingStyleSession(dashboard.session.type, dashboard.session.name)) {
+    return dashboard;
+  }
+
+  const bestLapsByDriver = new Map(freezeState.phaseBestLaps[phase].map((lap) => [lap.driverNumber, lap]));
+
+  return {
+    ...dashboard,
+    timing: {
+      ...dashboard.timing,
+      drivers: dashboard.timing.drivers.map((driver) => applyPhaseBestLapToDriver(driver, bestLapsByDriver.get(driver.driverNumber ?? -1)))
+    }
+  };
+}
+
+function applyPhaseBestLapToDriver(driver: TimingDriver, phaseBestLap: PhaseBestLap | undefined): TimingDriver {
+  if (!driver.driverNumber) {
+    return {
+      ...driver,
+      bestLapDuration: undefined,
+      bestLapTime: undefined
+    };
+  }
+
+  if (!phaseBestLap) {
+    return {
+      ...driver,
+      bestLapDuration: undefined,
+      bestLapTime: undefined
+    };
+  }
+
+  return {
+    ...driver,
+    bestLapDuration: phaseBestLap.lapDuration,
+    bestLapTime: formatLapDuration(phaseBestLap.lapDuration)
+  };
 }
 
 function getQualifyingScopeKey(meeting: MeetingState, session: SessionState): string {
@@ -163,4 +232,70 @@ function applyActiveDisplayPositions(rows: readonly TimingTowerRow[]): readonly 
     ...row,
     displayPosition: row.displayPosition === "--" ? "--" : String(index + 1).padStart(2, "0")
   }));
+}
+
+function updatePhaseBestLaps(
+  phaseBestLaps: PhaseBestLapState,
+  currentDashboard: DashboardState,
+  nextDashboard: DashboardState,
+  phase: 1 | 2 | 3
+): PhaseBestLapState {
+  const currentDriversByNumber = new Map(
+    currentDashboard.timing.drivers
+      .filter((driver): driver is TimingDriver & { readonly driverNumber: number } => driver.driverNumber !== undefined)
+      .map((driver) => [driver.driverNumber, driver])
+  );
+  const phaseBestLapsByDriver = new Map(phaseBestLaps[phase].map((lap) => [lap.driverNumber, lap]));
+
+  for (const nextDriver of nextDashboard.timing.drivers) {
+    if (!nextDriver.driverNumber || !isValidLapDuration(nextDriver.latestLapDuration)) {
+      continue;
+    }
+
+    const currentDriver = currentDriversByNumber.get(nextDriver.driverNumber);
+
+    if (!isNewLatestLap(currentDriver, nextDriver)) {
+      continue;
+    }
+
+    const existingBestLap = phaseBestLapsByDriver.get(nextDriver.driverNumber);
+
+    if (!existingBestLap || nextDriver.latestLapDuration < existingBestLap.lapDuration) {
+      phaseBestLapsByDriver.set(nextDriver.driverNumber, {
+        driverNumber: nextDriver.driverNumber,
+        lapDuration: nextDriver.latestLapDuration,
+        lapNumber: nextDriver.latestLapNumber,
+        lapUpdatedAt: nextDriver.latestLapUpdatedAt
+      });
+    }
+  }
+
+  return {
+    ...phaseBestLaps,
+    [phase]: Array.from(phaseBestLapsByDriver.values())
+  };
+}
+
+function isNewLatestLap(currentDriver: TimingDriver | undefined, nextDriver: TimingDriver): boolean {
+  if (nextDriver.latestLapNumber !== undefined && currentDriver?.latestLapNumber !== undefined) {
+    return nextDriver.latestLapNumber > currentDriver.latestLapNumber;
+  }
+
+  if (nextDriver.latestLapUpdatedAt && currentDriver?.latestLapUpdatedAt) {
+    return Date.parse(nextDriver.latestLapUpdatedAt) > Date.parse(currentDriver.latestLapUpdatedAt);
+  }
+
+  return currentDriver?.latestLapDuration !== nextDriver.latestLapDuration;
+}
+
+function isValidLapDuration(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function createEmptyPhaseBestLaps(): PhaseBestLapState {
+  return {
+    1: [],
+    2: [],
+    3: []
+  };
 }

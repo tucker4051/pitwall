@@ -177,7 +177,7 @@ export function DashboardShell() {
     };
   }, [webSocketUrl]);
 
-  const timingTowerRowsResult = buildTimingTowerRowsForDashboard(dashboard);
+  const timingTowerRowsResult = buildTimingTowerRowsForDashboard(dashboard, viewState.qualifyingFreeze);
   const qualifyingElimination = applyQualifyingFreeze(timingTowerRowsResult, viewState.qualifyingFreeze, dashboard.session);
   const displayTimingTowerRowsResult = qualifyingElimination.rowsResult;
   const visibleDrivers = displayTimingTowerRowsResult.rows;
