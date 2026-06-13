@@ -165,7 +165,8 @@ export function DashboardShell() {
     session: dashboard.session,
     connection: dashboard.connection,
     drivers: dashboard.drivers,
-    timingDrivers: dashboard.timing.drivers
+    timingDrivers: dashboard.timing.drivers,
+    stints: dashboard.stints
   });
   const visibleDrivers = timingTowerRowsResult.rows;
   const effectiveSelectedDriverKey = visibleDrivers.some((driver) => driver.rowKey === selectedDriverKey)

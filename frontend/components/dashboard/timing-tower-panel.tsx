@@ -19,10 +19,11 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
         <span className="font-mono text-[11px] text-slate-500">{visibleDrivers.length || "--"} cars</span>
       </div>
 
-      <div className="grid grid-cols-[34px_1fr_72px] border-b border-slate-800 bg-[#090d13] px-2 py-1.5 text-[10px] font-bold uppercase text-slate-500">
+      <div className="grid grid-cols-[34px_1fr_66px_42px] border-b border-slate-800 bg-[#090d13] px-2 py-1.5 text-[10px] font-bold uppercase text-slate-500">
         <span>Pos</span>
         <span>Drv</span>
         <span className="text-right">{rowsResult.timingColumnHeader}</span>
+        <span className="text-right">Tyre</span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
@@ -38,7 +39,7 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
               key={driver.rowKey}
               type="button"
               onClick={() => onSelectDriver(driver)}
-              className={`grid h-[27px] w-full grid-cols-[34px_1fr_72px] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
+              className={`grid h-[27px] w-full grid-cols-[34px_1fr_66px_42px] items-center border-b border-slate-900 px-2 text-left text-[11px] ${
                 selected ? "bg-cyan-400/10 text-cyan-100" : "bg-transparent text-slate-300 hover:bg-slate-900"
               }`}
             >
@@ -50,12 +51,49 @@ export function TimingTowerPanel({ rowsResult, selectedDriverKey, onSelectDriver
               <span className="text-right font-mono text-[11px] tabular-nums text-slate-300">
                 {driver.displayTimingValue}
               </span>
+              <span className="flex justify-end">
+                <TyreChip compound={driver.tyreCompound} label={driver.displayTyreCompound} />
+              </span>
             </button>
           );
         })}
       </div>
     </section>
   );
+}
+
+function TyreChip({
+  compound,
+  label
+}: {
+  readonly compound: TimingTowerRow["tyreCompound"];
+  readonly label: string;
+}) {
+  const className = getTyreChipClassName(compound);
+
+  return (
+    <span className={`min-w-8 border px-1 py-0.5 text-center font-mono text-[9px] font-black uppercase leading-none ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function getTyreChipClassName(compound: TimingTowerRow["tyreCompound"]): string {
+  switch (compound) {
+    case "soft":
+      return "border-red-500/40 bg-red-500/10 text-red-300";
+    case "medium":
+      return "border-yellow-400/40 bg-yellow-400/10 text-yellow-200";
+    case "hard":
+      return "border-slate-200/40 bg-slate-200/10 text-slate-100";
+    case "intermediate":
+      return "border-emerald-400/40 bg-emerald-400/10 text-emerald-200";
+    case "wet":
+      return "border-sky-400/40 bg-sky-400/10 text-sky-200";
+    case "unknown":
+    case null:
+      return "border-slate-700 bg-slate-900/60 text-slate-500";
+  }
 }
 
 function TimingTowerEmptyState({ emptyState }: { readonly emptyState: TimingTowerRowsResult["emptyState"] }) {

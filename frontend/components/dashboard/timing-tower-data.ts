@@ -1,4 +1,4 @@
-import type { ConnectionState, MeetingState, SessionState, TimingDriver } from "./types";
+import type { ConnectionState, MeetingState, SessionState, TimingDriver, TyreStint } from "./types";
 import { formatLapDuration } from "./format";
 
 export type TimingTowerRow = TimingDriver & {
@@ -6,6 +6,8 @@ export type TimingTowerRow = TimingDriver & {
   readonly displayPosition: string;
   readonly displayLabel: string;
   readonly displayTimingValue: string;
+  readonly displayTyreCompound: string;
+  readonly tyreCompound: TyreStint["compound"] | "unknown" | null;
   readonly hasDriverMetadata: boolean;
 };
 
@@ -27,6 +29,7 @@ type BuildTimingTowerRowsInput = {
   readonly connection: ConnectionState;
   readonly drivers: readonly TimingDriver[];
   readonly timingDrivers: readonly TimingDriver[];
+  readonly stints: readonly TyreStint[];
 };
 
 export const mockTimingTowerDrivers: readonly TimingDriver[] = [
@@ -60,20 +63,21 @@ export function buildTimingTowerRows({
   session,
   connection,
   drivers,
-  timingDrivers
+  timingDrivers,
+  stints
 }: BuildTimingTowerRowsInput): TimingTowerRowsResult {
   const timingDisplayMode = getTimingDisplayMode(session.type ?? connection.sessionType);
   const timingColumnHeader = getTimingColumnHeader(timingDisplayMode);
 
   if (dataMode === "mock") {
     return {
-      rows: mergeDriverRows(mockTimingTowerDrivers, drivers, timingDrivers, timingDisplayMode),
+      rows: mergeDriverRows(mockTimingTowerDrivers, drivers, timingDrivers, stints, timingDisplayMode),
       timingColumnHeader,
       emptyState: null
     };
   }
 
-  const rows = mergeDriverRows([], drivers, timingDrivers, timingDisplayMode);
+  const rows = mergeDriverRows([], drivers, timingDrivers, stints, timingDisplayMode);
 
   if (rows.length > 0) {
     return {
@@ -118,9 +122,11 @@ function mergeDriverRows(
   baseDrivers: readonly TimingDriver[],
   metadataDrivers: readonly TimingDriver[],
   timingDrivers: readonly TimingDriver[],
+  stints: readonly TyreStint[],
   timingDisplayMode: TimingDisplayMode
 ): readonly TimingTowerRow[] {
   const rowsByIdentity = new Map<string, TimingDriver>();
+  const latestStintsByDriver = createLatestStintsByDriver(stints);
 
   for (const driver of [...baseDrivers, ...metadataDrivers, ...timingDrivers]) {
     const rowKey = findExistingDriverRowKey(rowsByIdentity, driver) ?? getDriverRowKey(driver);
@@ -136,7 +142,7 @@ function mergeDriverRows(
   }
 
   return Array.from(rowsByIdentity.values())
-    .map((driver) => toTimingTowerRow(driver, timingDisplayMode))
+    .map((driver) => toTimingTowerRow(driver, latestStintsByDriver.get(driver.driverNumber ?? -1), timingDisplayMode))
     .sort((left, right) => compareTimingTowerRows(left, right, timingDisplayMode))
     .map((row, index) => applyDisplayPosition(row, index, timingDisplayMode));
 }
@@ -188,7 +194,13 @@ function normaliseDriver(driver: TimingDriver): TimingDriver {
   };
 }
 
-function toTimingTowerRow(driver: TimingDriver, timingDisplayMode: TimingDisplayMode): TimingTowerRow {
+function toTimingTowerRow(
+  driver: TimingDriver,
+  stint: TyreStint | undefined,
+  timingDisplayMode: TimingDisplayMode
+): TimingTowerRow {
+  const tyreCompound = normaliseTyreCompound(stint?.compound);
+
   return {
     ...driver,
     rowKey: getDriverRowKey(driver),
@@ -198,8 +210,84 @@ function toTimingTowerRow(driver: TimingDriver, timingDisplayMode: TimingDisplay
         : "--",
     displayLabel: getTimingTowerDisplayLabel(driver),
     displayTimingValue: getTimingDisplayValue(driver, timingDisplayMode),
+    displayTyreCompound: getTyreCompoundAbbreviation(tyreCompound),
+    tyreCompound,
     hasDriverMetadata: Boolean(getAcronym(driver))
   };
+}
+
+function createLatestStintsByDriver(stints: readonly TyreStint[]): ReadonlyMap<number, TyreStint> {
+  const latestStintsByDriver = new Map<number, TyreStint>();
+
+  for (const stint of stints) {
+    const existingStint = latestStintsByDriver.get(stint.driverNumber);
+
+    if (!existingStint || compareStintRecency(stint, existingStint) > 0) {
+      latestStintsByDriver.set(stint.driverNumber, stint);
+    }
+  }
+
+  return latestStintsByDriver;
+}
+
+function compareStintRecency(left: TyreStint, right: TyreStint): number {
+  if (left.stintNumber !== right.stintNumber) {
+    return left.stintNumber - right.stintNumber;
+  }
+
+  return getStintLapSortValue(left) - getStintLapSortValue(right);
+}
+
+function getStintLapSortValue(stint: TyreStint): number {
+  return stint.lapEnd ?? stint.lapStart ?? 0;
+}
+
+function normaliseTyreCompound(compound: string | null | undefined): TyreStint["compound"] | "unknown" | null {
+  if (!compound) {
+    return null;
+  }
+
+  const normalisedCompound = compound.toLowerCase().replace(/[^a-z]/g, "");
+
+  if (normalisedCompound === "soft" || normalisedCompound === "sft") {
+    return "soft";
+  }
+
+  if (normalisedCompound === "medium" || normalisedCompound === "med") {
+    return "medium";
+  }
+
+  if (normalisedCompound === "hard" || normalisedCompound === "hrd") {
+    return "hard";
+  }
+
+  if (normalisedCompound === "intermediate" || normalisedCompound === "intermediates" || normalisedCompound === "int") {
+    return "intermediate";
+  }
+
+  if (normalisedCompound === "wet" || normalisedCompound === "wets") {
+    return "wet";
+  }
+
+  return "unknown";
+}
+
+function getTyreCompoundAbbreviation(compound: TyreStint["compound"] | "unknown" | null): string {
+  switch (compound) {
+    case "soft":
+      return "SFT";
+    case "medium":
+      return "MED";
+    case "hard":
+      return "HRD";
+    case "intermediate":
+      return "INT";
+    case "wet":
+      return "WET";
+    case "unknown":
+    case null:
+      return "--";
+  }
 }
 
 function compareTimingTowerRows(left: TimingTowerRow, right: TimingTowerRow, timingDisplayMode: TimingDisplayMode): number {
