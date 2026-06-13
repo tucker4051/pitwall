@@ -282,6 +282,8 @@ function validateOpenF1TimingMessage(message: Record<string, unknown>): SourceMe
       isRecord(driver) &&
       isNumber(driver.driverNumber) &&
       optionalNumber(driver.position) &&
+      optionalNumber(driver.gridPosition) &&
+      optionalNumber(driver.livePosition) &&
       optionalString(driver.gapToLeader) &&
       optionalString(driver.intervalToAhead) &&
       optionalString(driver.intervalUpdatedAt) &&

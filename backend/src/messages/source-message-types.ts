@@ -107,7 +107,7 @@ export type OpenF1SourceMessage =
       readonly recordedAt: string;
       readonly metadata: SourceMessageMetadata & {
         readonly source: "openf1";
-        readonly topic: "v1/laps" | "v1/intervals";
+        readonly topic: "v1/laps" | "v1/intervals" | "v1/starting_grid";
       };
       readonly payload: {
         readonly lap: number | null;
@@ -256,6 +256,8 @@ export type OpenF1InternalPosition = {
 export type OpenF1InternalTimingDriver = {
   readonly driverNumber: number;
   readonly position?: number;
+  readonly gridPosition?: number;
+  readonly livePosition?: number;
   readonly gapToLeader?: string;
   readonly intervalToAhead?: string;
   readonly intervalUpdatedAt?: string;

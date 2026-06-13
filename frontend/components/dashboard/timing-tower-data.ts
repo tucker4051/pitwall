@@ -163,6 +163,8 @@ function mergeDriver(existingDriver: TimingDriver | undefined, nextDriver: Timin
     teamName: nextDriver.teamName ?? existingDriver.teamName,
     teamColour: nextDriver.teamColour ?? existingDriver.teamColour,
     headshotUrl: nextDriver.headshotUrl ?? existingDriver.headshotUrl,
+    gridPosition: nextDriver.gridPosition ?? existingDriver.gridPosition,
+    livePosition: nextDriver.livePosition ?? existingDriver.livePosition,
     gapToLeader: nextDriver.gapToLeader || existingDriver.gapToLeader || "--",
     intervalToAhead: nextDriver.intervalToAhead ?? existingDriver.intervalToAhead,
     intervalUpdatedAt: nextDriver.intervalUpdatedAt ?? existingDriver.intervalUpdatedAt,
@@ -311,11 +313,26 @@ function compareTimingTowerRows(left: TimingTowerRow, right: TimingTowerRow, tim
     return compareDriverAcronym(left, right);
   }
 
-  if (left.position !== right.position) {
-    return left.position - right.position;
+  const leftPosition = getEffectiveRacePosition(left);
+  const rightPosition = getEffectiveRacePosition(right);
+
+  if (leftPosition !== rightPosition) {
+    return leftPosition - rightPosition;
   }
 
   return compareDriverAcronym(left, right);
+}
+
+function getEffectiveRacePosition(driver: TimingTowerRow): number {
+  if (driver.livePosition !== undefined && driver.livePosition > 0) {
+    return driver.livePosition;
+  }
+
+  if (driver.gridPosition !== undefined && driver.gridPosition > 0) {
+    return driver.gridPosition;
+  }
+
+  return driver.position > 0 ? driver.position : Number.MAX_SAFE_INTEGER;
 }
 
 function applyDisplayPosition(

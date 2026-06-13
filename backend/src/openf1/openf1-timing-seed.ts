@@ -3,10 +3,11 @@ import type {
   OpenF1InternalSession,
   OpenF1RestClient,
   OpenF1RestInterval,
-  OpenF1RestLap
+  OpenF1RestLap,
+  OpenF1RestStartingGridRow
 } from "./openf1-rest-client.js";
 
-export type OpenF1TimingSeedKind = "laps" | "intervals";
+export type OpenF1TimingSeedKind = "laps" | "intervals" | "starting_grid";
 
 export type OpenF1TimingSeeder = {
   readonly seedSessionTiming: (
@@ -64,7 +65,9 @@ export function createOpenF1TimingSeeder(restClient: OpenF1RestClient): OpenF1Ti
         const message =
           seedKind === "laps"
             ? await createLapSeedMessage(restClient, meetingKey, session)
-            : await createIntervalSeedMessage(restClient, meetingKey, session);
+            : seedKind === "starting_grid"
+              ? await createStartingGridSeedMessage(restClient, meetingKey, session)
+              : await createIntervalSeedMessage(restClient, meetingKey, session);
 
         seedStatus.completed.add(seedKey);
 
@@ -101,7 +104,9 @@ export function getTimingSeedKind(
     case "Sprint Qualifying":
       return "laps";
     case "Race":
+      return "starting_grid";
     case "Sprint":
+      // TODO: Add Sprint Race grid seeding once the selected Sprint session/grid source is verified.
       return "intervals";
   }
 }
@@ -147,6 +152,19 @@ export function buildLatestIntervalSeedDrivers(intervals: readonly OpenF1RestInt
     intervalToAhead: interval.interval,
     intervalUpdatedAt: interval.date
   }));
+}
+
+export function buildStartingGridSeedDrivers(startingGridRows: readonly OpenF1RestStartingGridRow[]) {
+  return startingGridRows
+    .filter((row) => Number.isFinite(row.position) && row.position > 0)
+    .sort((left, right) => left.position - right.position)
+    .map((row) => ({
+      driverNumber: row.driverNumber,
+      position: row.position,
+      gridPosition: row.position,
+      gapToLeader: "--",
+      intervalToAhead: "--"
+    }));
 }
 
 async function createLapSeedMessage(
@@ -206,6 +224,41 @@ async function createIntervalSeedMessage(
     metadata: {
       source: "openf1",
       topic: "v1/intervals",
+      meetingKey,
+      sessionKey: session.sessionKey,
+      receivedAt: recordedAt
+    },
+    payload: {
+      lap: null,
+      drivers
+    }
+  };
+}
+
+async function createStartingGridSeedMessage(
+  restClient: OpenF1RestClient,
+  meetingKey: number,
+  session: OpenF1InternalSession
+): Promise<OpenF1SourceMessage & { readonly type: "openf1:timing" }> {
+  const startingGridRows = await restClient.fetchStartingGridForSession(session.sessionKey);
+  const drivers = buildStartingGridSeedDrivers(startingGridRows);
+  const recordedAt = new Date().toISOString();
+
+  console.log("OpenF1 timing REST seed rows fetched.", {
+    meetingKey,
+    sessionKey: session.sessionKey,
+    sessionType: session.sessionType,
+    endpoint: "starting_grid",
+    rowsFetched: startingGridRows.length,
+    driversUpdated: drivers.length
+  });
+
+  return {
+    type: "openf1:timing",
+    recordedAt,
+    metadata: {
+      source: "openf1",
+      topic: "v1/starting_grid",
       meetingKey,
       sessionKey: session.sessionKey,
       receivedAt: recordedAt

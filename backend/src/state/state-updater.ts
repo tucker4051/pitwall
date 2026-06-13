@@ -329,6 +329,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           nameAcronym: driver.nameAcronym,
           abbreviation: driver.abbreviation,
           position: existingDriver?.position ?? 0,
+          gridPosition: existingDriver?.gridPosition,
+          livePosition: existingDriver?.livePosition,
           broadcastName: driver.broadcastName,
           fullName: driver.fullName,
           teamName: driver.teamName,
@@ -359,6 +361,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
             lastLapTime: timingDriver.lastLapTime,
             bestLapTime: timingDriver.bestLapTime,
             bestLapDuration: timingDriver.bestLapDuration,
+            gridPosition: timingDriver.gridPosition,
+            livePosition: timingDriver.livePosition,
             latestLapDuration: timingDriver.latestLapDuration,
             latestLapNumber: timingDriver.latestLapNumber,
             latestLapUpdatedAt: timingDriver.latestLapUpdatedAt,
@@ -420,6 +424,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           driverNumber: position.driverNumber,
           abbreviation,
           position: position.position,
+          livePosition: position.position,
+          gridPosition: existingTimingDriver?.gridPosition ?? existingDriver?.gridPosition,
           positionUpdatedAt: incomingPositionUpdatedAt,
           gapToLeader:
             position.position === 1
@@ -432,6 +438,8 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           driverNumber: position.driverNumber,
           abbreviation,
           position: position.position,
+          livePosition: position.position,
+          gridPosition: existingTimingDriver?.gridPosition ?? existingDriver?.gridPosition,
           positionUpdatedAt: incomingPositionUpdatedAt
         });
 
@@ -474,12 +482,25 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
         const abbreviation = existingDriver?.abbreviation ?? existingTimingDriver?.abbreviation ?? String(driverUpdate.driverNumber);
         const lapMerge = mergeLapTiming(existingTimingDriver, driverUpdate, message.recordedAt, message.metadata.sessionKey);
         const intervalMerge = mergeIntervalTiming(existingTimingDriver, driverUpdate, message.recordedAt, message.metadata.sessionKey);
+        const gridPosition = driverUpdate.gridPosition ?? existingTimingDriver?.gridPosition ?? existingDriver?.gridPosition;
+        const livePosition = driverUpdate.livePosition ?? existingTimingDriver?.livePosition ?? existingDriver?.livePosition;
+        const displayPosition =
+          livePosition ??
+          driverUpdate.position ??
+          existingDriver?.livePosition ??
+          existingTimingDriver?.livePosition ??
+          gridPosition ??
+          existingDriver?.position ??
+          existingTimingDriver?.position ??
+          0;
         const nextTimingDriver: TimingDriverState = {
           ...existingTimingDriver,
           ...existingDriver,
           driverNumber: driverUpdate.driverNumber,
           abbreviation,
-          position: driverUpdate.position ?? existingDriver?.position ?? existingTimingDriver?.position ?? 0,
+          position: displayPosition,
+          gridPosition,
+          livePosition,
           gapToLeader: driverUpdate.gapToLeader ?? existingTimingDriver?.gapToLeader ?? "",
           intervalToAhead: intervalMerge.intervalToAhead,
           intervalUpdatedAt: intervalMerge.intervalUpdatedAt,
@@ -503,7 +524,9 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
           ...existingDriver,
           driverNumber: driverUpdate.driverNumber,
           abbreviation,
-          position: nextTimingDriver.position
+          position: nextTimingDriver.position,
+          gridPosition,
+          livePosition
         });
 
         upsertTimingDriver(timingDrivers, nextTimingDriver);
@@ -1043,8 +1066,8 @@ function formatLapDuration(seconds: number): string {
 
 function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonly TimingDriverState[] {
   return [...timingDrivers].sort((left, right) => {
-    const leftPosition = left.position > 0 ? left.position : Number.MAX_SAFE_INTEGER;
-    const rightPosition = right.position > 0 ? right.position : Number.MAX_SAFE_INTEGER;
+    const leftPosition = getEffectiveTimingPosition(left);
+    const rightPosition = getEffectiveTimingPosition(right);
 
     if (leftPosition !== rightPosition) {
       return leftPosition - rightPosition;
@@ -1052,6 +1075,18 @@ function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonl
 
     return left.abbreviation.localeCompare(right.abbreviation);
   });
+}
+
+function getEffectiveTimingPosition(driver: TimingDriverState): number {
+  if (driver.livePosition !== undefined && driver.livePosition > 0) {
+    return driver.livePosition;
+  }
+
+  if (driver.gridPosition !== undefined && driver.gridPosition > 0) {
+    return driver.gridPosition;
+  }
+
+  return driver.position > 0 ? driver.position : Number.MAX_SAFE_INTEGER;
 }
 
 function logLiveMergeDiagnostics(

@@ -25,12 +25,19 @@ export type OpenF1RestInterval = {
   readonly date?: string;
 };
 
+export type OpenF1RestStartingGridRow = {
+  readonly driverNumber: number;
+  readonly position: number;
+  readonly lapDuration?: number;
+};
+
 export type OpenF1RestClient = {
   readonly fetchMeetingsForYear: (year: number) => Promise<readonly OpenF1InternalMeeting[]>;
   readonly fetchSessionsForMeeting: (meetingKey: number) => Promise<readonly OpenF1InternalSession[]>;
   readonly fetchDriversForSession: (sessionKey: string | number) => Promise<readonly OpenF1InternalDriver[]>;
   readonly fetchLapsForSession: (sessionKey: string | number) => Promise<readonly OpenF1RestLap[]>;
   readonly fetchIntervalsForSession: (sessionKey: string | number) => Promise<readonly OpenF1RestInterval[]>;
+  readonly fetchStartingGridForSession: (sessionKey: string | number) => Promise<readonly OpenF1RestStartingGridRow[]>;
 };
 
 export function createOpenF1RestClient(config: OpenF1Config, tokenManager: OpenF1TokenManager): OpenF1RestClient {
@@ -58,6 +65,11 @@ export function createOpenF1RestClient(config: OpenF1Config, tokenManager: OpenF
     async fetchIntervalsForSession(sessionKey: string | number): Promise<readonly OpenF1RestInterval[]> {
       const value = await fetchOpenF1Json(config, tokenManager, "intervals", { session_key: String(sessionKey) });
       return parseOpenF1Intervals(value);
+    },
+
+    async fetchStartingGridForSession(sessionKey: string | number): Promise<readonly OpenF1RestStartingGridRow[]> {
+      const value = await fetchOpenF1Json(config, tokenManager, "starting_grid", { session_key: String(sessionKey) });
+      return parseOpenF1StartingGrid(value);
     }
   };
 }
@@ -100,6 +112,14 @@ export function parseOpenF1Intervals(value: unknown): readonly OpenF1RestInterva
   }
 
   return value.map(parseOpenF1Interval).filter((interval): interval is OpenF1RestInterval => interval !== null);
+}
+
+export function parseOpenF1StartingGrid(value: unknown): readonly OpenF1RestStartingGridRow[] {
+  if (!Array.isArray(value)) {
+    throw new Error("OpenF1 starting_grid response must be an array.");
+  }
+
+  return value.map(parseOpenF1StartingGridRow).filter((row): row is OpenF1RestStartingGridRow => row !== null);
 }
 
 async function fetchOpenF1Json(
@@ -211,6 +231,18 @@ function parseOpenF1Interval(value: unknown): OpenF1RestInterval | null {
     interval: formatInterval(value.interval),
     gapToLeader: formatInterval(value.gap_to_leader),
     date: readOptionalString(value.date)
+  };
+}
+
+function parseOpenF1StartingGridRow(value: unknown): OpenF1RestStartingGridRow | null {
+  if (!isRecord(value) || !isNumber(value.driver_number) || !isNumber(value.position)) {
+    return null;
+  }
+
+  return {
+    driverNumber: value.driver_number,
+    position: value.position,
+    lapDuration: readOptionalNumber(value.lap_duration)
   };
 }
 
