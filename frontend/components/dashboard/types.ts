@@ -88,6 +88,7 @@ export type RaceControlMessage = {
 };
 
 export type TrackPosition = {
+  readonly driverNumber?: number;
   readonly abbreviation: string;
   readonly x: number;
   readonly y: number;

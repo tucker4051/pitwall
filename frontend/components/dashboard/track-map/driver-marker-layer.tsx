@@ -139,6 +139,10 @@ function buildDriverMarkers(
 }
 
 function findDriverForTrackPosition(position: TrackPosition, drivers: readonly TimingDriver[]): TimingDriver | undefined {
+  if (position.driverNumber !== undefined) {
+    return drivers.find((driver) => driver.driverNumber === position.driverNumber);
+  }
+
   const driverNumber = Number(position.abbreviation);
 
   if (Number.isFinite(driverNumber)) {

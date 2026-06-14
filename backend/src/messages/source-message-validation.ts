@@ -160,6 +160,7 @@ function validateLocationMessage(message: Record<string, unknown>): SourceMessag
     (position) =>
       isRecord(position) &&
       isString(position.abbreviation) &&
+      optionalNumber(position.driverNumber) &&
       isNumber(position.x) &&
       isNumber(position.y) &&
       isNumber(position.z)

@@ -145,17 +145,32 @@ export function applyMockMessageToState(state: CurrentRaceState, message: Source
       }
 
       const trackPositions = new Map(state.trackPositions);
+      const driverNumbers: number[] = [];
 
       for (const position of message.payload.positions) {
-        trackPositions.set(position.abbreviation, {
+        const driverNumber = getTrackPositionDriverNumber(position);
+        const key = driverNumber !== null ? String(driverNumber) : position.abbreviation;
+        const existingPosition = trackPositions.get(key);
+        const enrichedAbbreviation =
+          driverNumber !== null
+            ? getDriverTrackAbbreviation(driverNumber, state, existingPosition)
+            : position.abbreviation;
+
+        if (driverNumber !== null) {
+          driverNumbers.push(driverNumber);
+        }
+
+        trackPositions.set(key, {
           ...position,
+          driverNumber: driverNumber ?? undefined,
+          abbreviation: enrichedAbbreviation,
           updatedAt: message.recordedAt
         });
       }
 
       logLiveMergeDiagnostics(
         message.type,
-        message.payload.positions.map((position) => Number(position.abbreviation)).filter(Number.isFinite),
+        driverNumbers,
         state.drivers.size,
         state.timing.drivers.length
       );
@@ -1075,6 +1090,38 @@ function sortTimingDrivers(timingDrivers: readonly TimingDriverState[]): readonl
 
     return left.abbreviation.localeCompare(right.abbreviation);
   });
+}
+
+function getTrackPositionDriverNumber(position: { readonly driverNumber?: number; readonly abbreviation: string }): number | null {
+  if (position.driverNumber !== undefined && Number.isFinite(position.driverNumber)) {
+    return position.driverNumber;
+  }
+
+  const parsedDriverNumber = Number(position.abbreviation);
+
+  return Number.isFinite(parsedDriverNumber) ? parsedDriverNumber : null;
+}
+
+function getDriverTrackAbbreviation(
+  driverNumber: number,
+  state: CurrentRaceState,
+  existingPosition: TrackPositionState | undefined
+): string {
+  const driver = state.drivers.get(String(driverNumber));
+  const timingDriver = findTimingDriver(state.timing.drivers, driverNumber);
+  const abbreviation = [
+    driver?.nameAcronym,
+    driver?.abbreviation,
+    timingDriver?.nameAcronym,
+    timingDriver?.abbreviation,
+    existingPosition?.abbreviation
+  ].find((candidate) => candidate && !isNumericDriverLabel(candidate));
+
+  return abbreviation ?? String(driverNumber);
+}
+
+function isNumericDriverLabel(value: string): boolean {
+  return /^#?\d+$/.test(value.trim());
 }
 
 function getEffectiveTimingPosition(driver: TimingDriverState): number {

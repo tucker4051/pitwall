@@ -180,6 +180,7 @@ export type MockRaceControlMessage = {
 };
 
 export type MockTrackPosition = {
+  readonly driverNumber?: number;
   readonly abbreviation: string;
   readonly x: number;
   readonly y: number;
