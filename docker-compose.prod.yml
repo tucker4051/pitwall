@@ -1,17 +1,13 @@
 services:
   backend:
+    image: pitwall-backend:latest
     build:
       context: ./backend
-      target: development
-    working_dir: /app
-    command: >
-      sh -c "if [ ! -x node_modules/.bin/tsx ]; then
-        npm install;
-      fi;
-      npm run dev"
+      target: production
+    restart: unless-stopped
     environment:
       BACKEND_PORT: ${BACKEND_PORT:-3001}
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: production
       DATA_MODE: ${DATA_MODE:-mock}
       OPENF1_USERNAME: ${OPENF1_USERNAME:-}
       OPENF1_PASSWORD: ${OPENF1_PASSWORD:-}
@@ -22,35 +18,22 @@ services:
       OPENF1_MQTT_WS_URL: ${OPENF1_MQTT_WS_URL:-wss://mqtt.openf1.org:8084/mqtt}
       OPENF1_REST_BASE_URL: ${OPENF1_REST_BASE_URL:-https://api.openf1.org/v1/}
     ports:
-      - "3001:3001"
-    volumes:
-      - ./backend:/app
-      - backend_node_modules:/app/node_modules
+      - "127.0.0.1:3001:3001"
 
   frontend:
+    image: pitwall-frontend:latest
     build:
       context: ./frontend
-      target: development
-    working_dir: /app
-    command: >
-      sh -c "if [ ! -x node_modules/.bin/next ]; then
-        npm install;
-      fi;
-      npm run dev"
+      target: production
+      args:
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-PitWall}
+        NEXT_PUBLIC_BACKEND_WS_URL: ${NEXT_PUBLIC_BACKEND_WS_URL:-ws://localhost:3001/ws}
+    restart: unless-stopped
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: production
       NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-PitWall}
       NEXT_PUBLIC_BACKEND_WS_URL: ${NEXT_PUBLIC_BACKEND_WS_URL:-ws://localhost:3001/ws}
     ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - frontend_node_modules:/app/node_modules
-      - frontend_next:/app/.next
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
-
-volumes:
-  backend_node_modules:
-  frontend_node_modules:
-  frontend_next:

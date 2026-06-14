@@ -24,6 +24,7 @@ The aim of the project is to create a clean second-screen experience for followi
 * [Environment Variables](#environment-variables)
 * [Running in Mock Mode](#running-in-mock-mode)
 * [Running in Live Mode](#running-in-live-mode)
+* [Production Docker Deployment](#production-docker-deployment)
 * [Useful Commands](#useful-commands)
 * [Security Notes](#security-notes)
 * [Docker Image Security](#docker-image-security)
@@ -233,6 +234,57 @@ Expected output:
 
 ---
 
+## Production Docker Deployment
+
+Production deployment uses `docker-compose.prod.yml` and the production Dockerfile targets.
+
+The production stack:
+
+* Builds backend TypeScript during image build
+* Builds the Next.js frontend during image build
+* Does not run `npm install` at container startup
+* Does not use development bind mounts
+* Binds services to localhost only for a reverse proxy such as Plesk/nginx
+
+Build and start production containers:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Check running containers:
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+```
+
+View backend logs:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f backend
+```
+
+Check backend health:
+
+```bash
+curl -s http://localhost:3001/health | jq
+```
+
+Stop production containers:
+
+```bash
+docker compose -f docker-compose.prod.yml down
+```
+
+For public hosting behind Cloudflare and Plesk/nginx, point the reverse proxy at:
+
+* Frontend: `127.0.0.1:3000`
+* Backend API/WebSocket: `127.0.0.1:3001`
+
+Set `NEXT_PUBLIC_BACKEND_WS_URL` before building the frontend image so the browser receives the correct production WebSocket URL.
+
+---
+
 ## Useful Commands
 
 Run backend type checking:
@@ -311,10 +363,10 @@ Completed release-prep actions include:
 * Backend Alpine packages upgraded during image build
 * Frontend Alpine packages upgraded during image build
 * Critical OpenSSL base-image findings remediated
+* Production multi-stage backend image added
+* Production multi-stage frontend image added
 
 Remaining Docker Scout findings may relate to global npm tooling bundled in the Node base image rather than direct application runtime dependencies.
-
-Future hardening should move the backend and frontend to production multi-stage images with minimal runtime contents.
 
 ---
 
@@ -342,7 +394,6 @@ Known limitations include:
 
 Possible future improvements include:
 
-* Production multi-stage Docker images
 * Automated CI validation
 * VPS deployment automation
 * Qualifying restart reconstruction from OpenF1 history
